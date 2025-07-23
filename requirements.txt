@@ -1,0 +1,7 @@
+numpy # Fundamental package for numerical computing with Python
+pandas # Data manipulation and analysis library
+seaborn # Statistical data visualization library built on top of matplotlib
+streamlit # Web app framework for data science and machine learning projects
+matplotlib # Comprehensive library for creating static, animated, and interactive visualizations
+scikit-learn # Machine learning library with tools for model fitting, selection, and evaluation
+
