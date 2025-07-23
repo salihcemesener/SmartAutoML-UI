@@ -1,7 +1,12 @@
+import numpy as np
 import pandas as pd
 import streamlit as st
+from scipy.stats import zscore
 import category_encoders as ce  # For Target and Binary Encoding
+from sklearn.ensemble import IsolationForest
+from scipy.spatial.distance import mahalanobis
 from sklearn.preprocessing import LabelEncoder
+from sklearn.neighbors import LocalOutlierFactor
 
 from utils.preprocessing.encoding_methods import (
     target_encoding,
@@ -62,8 +67,8 @@ def get_categorical_encoding_options():
     return encoding_options
 
 
-def get_remove_outliers_options():
-    remove_outliers_options = {
+def list_outlier_detection_strategies():
+    outlier_detection_options = {
         "Do Nothing": ("Leave the column unchanged-no outlier removal applied."),
         "Z-Score Method (Standard Score)": (
             "Calculate the standardized score for each observation:\n\n"
@@ -164,7 +169,7 @@ def get_remove_outliers_options():
             "- Compute Euclidean length in this whitened space; points beyond the threshold ellipse are outliers.\n\n"
         ),
     }
-    return remove_outliers_options
+    return outlier_detection_options
 
 
 def get_missing_value_options():
@@ -432,77 +437,87 @@ def apply_categorical_to_numerical(fill_method_name, df, col):
         return df
 
 
-def apply_outlier_removal(fill_method_name, df, col):
+def apply_outlier_detection(fill_method_name, df, col):
     try:
-        st.session_state[f"z_score_th_{col}"] = st.session_state.get(
-            f"z_score_th_{col}", 3
-        )
+        series = df[col]
+        outlier_indices = []
 
-        st.session_state[f"IQR_multiplier_{col}"] = st.session_state.get(
-            f"IQR_th_{col}", 1.5
-        )
-
-        st.session_state[f"MAD_scale_factor_{col}"] = st.session_state.get(
-            f"MAD_scale_factor_{col}", 1.4826
-        )
-        st.session_state[f"MAD_th_{col}"] = st.session_state.get(f"MAD_th_{col}", 3)
-
-        st.session_state[f"Winsorization_upper_percentile_{col}"] = (
-            st.session_state.get(f"Winsorization_upper_percentile_{col}", 95)
-        )
-        st.session_state[f"Winsorization_lower_percentile_{col}"] = (
-            st.session_state.get(f"Winsorization_lower_percentile_{col}", 5)
-        )
-
-        st.session_state[f"Isolation_Forest_n_estimators_{col}"] = st.session_state.get(
-            f"Isolation_Forest_n_estimators_{col}", 100
-        )
-        st.session_state[f"Isolation_Forest_max_samples_{col}"] = st.session_state.get(
-            f"Isolation_Forest_max_samples_{col}", "auto"
-        )
-        st.session_state[f"Isolation_Forest_contamination_{col}"] = (
-            st.session_state.get(f"Isolation_Forest_contamination_{col}", 0.05)
-        )
-        st.session_state[f"Isolation_Forest_max_features_{col}"] = st.session_state.get(
-            f"Isolation_Forest_max_features_{col}", 5
-        )
-
-        st.session_state[f"LOF_n_neighbors_{col}"] = st.session_state.get(
-            f"LOF_n_neighbors_{col}", 20
-        )
-        st.session_state[f"LOF_contamination_{col}"] = st.session_state.get(
-            f"LOF_contamination_{col}", 0.05
-        )
-        st.session_state[f"LOF_metric_{col}"] = st.session_state.get(
-            f"LOF_metric_{col}", "euclidian"
-        )
-
-        st.session_state[f"Mahalanobis_th_{col}"] = st.session_state.get(
-            f"LOF_n_neighbors_{col}", 20
-        )
         if fill_method_name == "Do Nothing":
-            st.info(
-                f"Skipping outlier removal for column `{col}`; values remain unchanged."
-            )
+            return f"ℹ️ No detection performed on `{col}` — method is set to 'Do Nothing'.",outlier_indices
 
         elif fill_method_name == "Z-Score Method (Standard Score)":
-            pass
+            threshold = st.session_state.get(f"z_score_th_{col}", 3)
+            z_scores = zscore(series)
+            outlier_indices = df.index[np.abs(z_scores) > threshold].tolist()
+            return f"📏 Z-Score: Detected {len(outlier_indices)} outliers (threshold = {threshold}).", outlier_indices
+
         elif fill_method_name == "Interquartile Range (IQR) Method":
-            pass
+            multiplier = st.session_state.get(f"IQR_multiplier_{col}", 1.5)
+            Q1 = series.quantile(0.25)
+            Q3 = series.quantile(0.75)
+            IQR = Q3 - Q1
+            lower = Q1 - multiplier * IQR
+            upper = Q3 + multiplier * IQR
+            outlier_indices = df.index[(series < lower) | (series > upper)].tolist()
+            return f"📦 IQR: Detected {len(outlier_indices)} outliers (multiplier = {multiplier}).", outlier_indices
+
         elif fill_method_name == "Median Absolute Deviation (MAD)":
-            pass
+            scale_factor = st.session_state.get(f"MAD_scale_factor_{col}", 1.4826)
+            threshold = st.session_state.get(f"MAD_th_{col}", 3)
+            median = series.median()
+            mad = np.median(np.abs(series - median))
+            modified_z = np.abs(series - median) / (mad * scale_factor + 1e-8)
+            outlier_indices = df.index[modified_z > threshold].tolist()
+            return f"📐 MAD: Detected {len(outlier_indices)} outliers (threshold = {threshold}, scale = {scale_factor}).", outlier_indices
+
         elif fill_method_name == "Winsorization (Percentile Capping)":
-            pass
+            lower_pct = st.session_state.get(f"Winsorization_lower_percentile_{col}", 5)
+            upper_pct = st.session_state.get(f"Winsorization_upper_percentile_{col}", 95)
+            lower = np.percentile(series, lower_pct)
+            upper = np.percentile(series, upper_pct)
+            outlier_indices = df.index[(series < lower) | (series > upper)].tolist()
+            return f"🔧 Winsorization: Detected {len(outlier_indices)} values outside {lower_pct}–{upper_pct} percentile caps.", outlier_indices
+
         elif fill_method_name == "Isolation Forest (Unsupervised ML)":
-            pass
+            contamination = st.session_state.get(f"Isolation_Forest_contamination_{col}", 0.05)
+            max_features = st.session_state.get(f"Isolation_Forest_max_features_{col}", 1)
+            model = IsolationForest(
+                contamination=contamination,
+                max_features=max_features,
+                random_state=42,
+            )
+            preds = model.fit_predict(series.values.reshape(-1, 1))
+            outlier_indices = df.index[preds == -1].tolist()
+            return f"🌲 Isolation Forest: Detected {len(outlier_indices)} outliers (contamination = {contamination}).", outlier_indices
+
         elif fill_method_name == "Local Outlier Factor (LOF)":
-            pass
+            contamination = st.session_state.get(f"LOF_contamination_{col}", 0.05)
+            n_neighbors = st.session_state.get(f"LOF_n_neighbors_{col}", 20)
+            metric = st.session_state.get(f"LOF_metric_{col}", "euclidean")
+            lof = LocalOutlierFactor(
+                contamination=contamination,
+                n_neighbors=n_neighbors,
+                metric=metric
+            )
+            preds = lof.fit_predict(series.values.reshape(-1, 1))
+            outlier_indices = df.index[preds == -1].tolist()
+            return f"📍 LOF: Detected {len(outlier_indices)} outliers (neighbors = {n_neighbors}, metric = {metric}).", outlier_indices
+
         elif fill_method_name == "Mahalanobis Distance":
-            pass
+            data = series.values.reshape(-1, 1)
+            mean_vec = np.mean(data, axis=0)
+            cov_matrix = np.cov(data.T)
+            try:
+                inv_cov = np.linalg.inv(cov_matrix)
+            except np.linalg.LinAlgError:
+                inv_cov = np.linalg.pinv(cov_matrix)
+            distances = np.array([mahalanobis(x, mean_vec, inv_cov) for x in data])
+            threshold = st.session_state.get(f"Mahalanobis_th_{col}", 20)
+            outlier_indices = df.index[distances > threshold].tolist()
+            return f"📈 Mahalanobis: Detected {len(outlier_indices)} outliers (threshold = {threshold}).", outlier_indices
+
         else:
-            st.warning(f"No valid remove outliers method selected for {col}.")
-        st.markdown("""---""")
-        return df
+            return f"⚠️ No valid outlier detection method selected for `{col}`.",outlier_indices
+
     except Exception as e:
-        st.error(f"🚨 Error occurred while remove outliers **{col}**: {repr(e)}")
-        return df
+        return f"🚨 Error during outlier detection for `{col}`: {repr(e)}",outlier_indices

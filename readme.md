@@ -16,6 +16,8 @@
   - [🧪 Example Workflow](#-example-workflow)
   - [📚 Additional Resources](#-additional-resources)
 - [🔧 Key Features:](#-key-features)
+- [⚠️ Known Issues](#️-known-issues)
+  - [1. 🚨 Unused Settings Are Saved](#1--unused-settings-are-saved)
 
 # 🚧 Development Status
 The project is currently under active development. During this process, various bugs may arise and are being addressed regularly.
@@ -39,7 +41,14 @@ This project is an AutoML platform designed to streamline machine learning workf
 ---
 
 ## 🚧 Phase 2: Advanced Preprocessing & Visualizations (In Progress)
-- [ ] Outlier detection and removal *(🛠 Actively in progress)*
+- [ ] Outlier detection and handling *(🛠 Actively in progress)*
+  - [ ] Visualize outliers *(🛠 Actively in progress)*
+  - [ ] Implement detection methods
+  - [ ] Provide options: remove, flag, or adjust outliers
+    - [ ] Cap the outliers 
+    - [ ] Transform the data 
+    - [ ] Impute the outliers 
+    - [ ] Flag outliers as a separate feature
 - [ ] Handle multicollinearity
 - [ ] Imbalanced class handling 
 - [ ] Feature scaling and transformation  
@@ -191,3 +200,14 @@ streamlit run main.py
      - Dimensionality Reduction - 🚧
 7. Evaluate Model: Review the model’s performance on the test set using key metrics. – 🚧
 8. Download Model & Inference Script: Export the trained model and a ready-to-use inference script. – 🚧
+
+# ⚠️ Known Issues
+
+## 1. 🚨 Unused Settings Are Saved
+
+- **Description**: All parameter values  are saved to the configuration file, **even if the associated method was not selected or applied**.
+- **Impact**: This leads to unnecessary clutter in the configuration file, making it harder to maintain or understand later.
+  - **Example**: If the user only applies Z-Score on `feature_1`, the app may still save IQR, MAD, LOF, and Isolation Forest params for that column.
+- **Expected Behavior**: Only parameters relevant to the **selected and applied method** for each column should be saved.
+
+✅ **Improvement Needed**: Filter saved config to include **only the chosen method + its relevant parameters** per feature column.

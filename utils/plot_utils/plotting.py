@@ -36,5 +36,15 @@ def feature_outlier_analysis(df, col, target):
     ax_by_inside.grid(True, linestyle="--", alpha=0.6)
     fig_by_inside.tight_layout()
     figs.append(fig_by_inside)
+    
+    # 4. Histogram & Rugplot
+    fig_hist, ax_hist = plt.subplots(figsize=(7, 4))
+    sns.histplot(df[col], bins=30, kde=True, ax=ax_hist, color="skyblue")
+    sns.rugplot(df[col], ax=ax_hist, color="black", alpha=0.2)
+    ax_hist.set_title(f"Distribution of '{col}'")
+    ax_hist.set_xlabel(col)
+    ax_hist.grid(True, linestyle="--", alpha=0.6)
+    fig_hist.tight_layout()
+    figs.append(fig_hist)
 
     return figs

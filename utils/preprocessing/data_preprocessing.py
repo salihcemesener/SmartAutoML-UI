@@ -7,11 +7,11 @@ from utils.settings_manager import save_configuration_if_updated
 from utils.preprocessing.data_preprocessing_utils import (
     get_missing_value_options,
     get_categorical_encoding_options,
-    get_remove_outliers_options,
+    list_outlier_detection_strategies,
     apply_numeric_fill_method,
     apply_categorical_fill_method,
     apply_categorical_to_numerical,
-    apply_outlier_removal,
+    apply_outlier_detection,
 )
 from utils.plot_utils.plotting import feature_outlier_analysis
 
@@ -429,7 +429,7 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
     for col in df.columns:
         init_outlier_params_for_col(df, col, existing_methods)
 
-    remove_outliers_options = get_remove_outliers_options()
+    outlier_detection_options = list_outlier_detection_strategies()
     st.session_state["selected_target_col"] = st.selectbox(
         "Visualize outliers by using target as:",
         options=df.columns.tolist(),
@@ -440,19 +440,19 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
         help="This column will be used as the grouping variable in the box‐plots and as the y-axis in the joint‐plot.",
     )
 
-    with st.expander("Remove Outliers", expanded=False):
+    with st.expander("Outlier Detection & Handling", expanded=False):
         st.markdown("<h3>Remove Outliers from the Dataset</h3>", unsafe_allow_html=True)
         help_remove_outliers = "\n".join(
             [
                 f"\n{index+1}- `{key}`: {value}"
-                for index, (key, value) in enumerate(remove_outliers_options.items())
+                for index, (key, value) in enumerate(outlier_detection_options.items())
             ]
         )
         with st.expander(
-            "🔍 Show Available Remove Outliers Techniques Options Explanations & "
+            "🔍 Show Available Outlier Detection Techniques Options Explanations"
         ):
             st.markdown(
-                f"👽 Available remove outliers techniques**:\n{help_remove_outliers}"
+                f"👽 Available outlier detection techniques**:\n{help_remove_outliers}"
             )
 
         with st.expander("🔍 Interpretation of the Box Plots Explanation"):
@@ -477,13 +477,13 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
             )
 
             default_method = existing_methods.get(
-                col, next(iter(remove_outliers_options.keys()))
+                col, next(iter(outlier_detection_options.keys()))
             )
             default_method = (
                 default_method
                 if default_method
                 else [
-                    next(iter(remove_outliers_options.keys())),
+                    next(iter(outlier_detection_options.keys())),
                     3,
                     1.5,
                     1.4826,
@@ -523,21 +523,21 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
             st.session_state[f"LOF_metric_{col}"] = default_method[13]
             st.session_state[f"Mahalanobis_th_{col}"] = default_method[14]
 
-            remove_outlier_method = st.selectbox(
-                f"How to remove outliers in {col}?",
-                options=remove_outliers_options.keys(),
-                help=f"Select a method for remove outliers in {col}.",
-                index=list(remove_outliers_options.keys()).index(default_method[0]),
+            outlier_detection_method = st.selectbox(
+                f"How to outlier detect in {col}?",
+                options=outlier_detection_options.keys(),
+                help=f"Select a method for outlier detect in {col}.",
+                index=list(outlier_detection_options.keys()).index(default_method[0]),
             )
 
             try:
-                pass
-                df = apply_outlier_removal(
-                    fill_method_name=remove_outlier_method, df=df, col=col
+                outlier_detection_output,detected_outlier_indices = apply_outlier_detection(
+                    fill_method_name=outlier_detection_method, df=df, col=col
                 )
+                st.info(f"🧪 **Outlier Detection Result:**\n\n{outlier_detection_output}")
             except Exception as error:
                 st.error(
-                    f"🚨 Error occurred when removeoutliers with {remove_outlier_method} at {col}. Error: {repr(error)}"
+                    f"🚨 Error occurred when remove outliers with {outlier_detection_method} at {col}. Error: {repr(error)}"
                 )
 
     settings = save_configuration_if_updated(
