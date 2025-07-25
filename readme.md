@@ -43,7 +43,7 @@ This project is an AutoML platform designed to streamline machine learning workf
 ## 🚧 Phase 2: Advanced Preprocessing & Visualizations (In Progress)
 - [ ] Outlier detection and handling *(🛠 Actively in progress)*
   - [ ] Visualize outliers *(🛠 Actively in progress)*
-  - [ ] Implement detection methods
+  - [ ] Implement detection methods *(🛠 Actively in progress)*
   - [ ] Provide options: remove, flag, or adjust outliers
     - [ ] Cap the outliers 
     - [ ] Transform the data 

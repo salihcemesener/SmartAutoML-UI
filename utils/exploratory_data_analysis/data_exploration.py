@@ -10,7 +10,7 @@ def duplicate_rows(df):
     duplicates = df[df.duplicated()]
     remove_duplicate = [False]
 
-    with st.expander("🧩 Duplicate Rows Check", expanded=True):
+    with st.expander("🧩 Duplicate Rows Check", expanded=False):
         if not duplicates.empty:
             st.warning("⚠️ The following rows are duplicated:")
             st.dataframe(duplicates)
@@ -57,7 +57,7 @@ def display_dataset_summary(df, settings, saved_configuration_file):
     st.markdown("---")
 
     st.markdown("<h3>Drop Unnecessary Columns</h3>", unsafe_allow_html=True)
-    with st.expander("📊 Dataset Exploration & Column Management", expanded=True):
+    with st.expander("📊 Dataset Exploration & Column Management", expanded=False):
         # Process dropped columns and duplicates
         df, dropped_columns, remove_duplicates = duplicate_rows_drop_columns_in_dataset(
             df, dropped_columns, key="dataset_summary"
@@ -77,9 +77,11 @@ def display_dataset_summary(df, settings, saved_configuration_file):
                 config_data_key=config_key,
             )
 
+    with st.expander("📄 Show Updated Dataset Preview", expanded=False):
         st.subheader("Updated Dataset Preview")
         st.dataframe(df.astype(str))
 
+    with st.expander("📊 Show Updated Dataset Statistical Overview", expanded=False):
         st.subheader("Updated Dataset Statistical Overview")
         st.dataframe(df.describe(include="all").astype(str).transpose())
 
@@ -121,7 +123,7 @@ def plot_correlation_map(df, settings, saved_configuration_file):
         # Save updated settings
         config_updates = {
             "Dropped_columns_name": updated_dropped_columns,
-            "Duplicate_removel": remove_duplicates,
+            "Duplicate_removal": remove_duplicates,
         }
 
         for config_key, config_value in config_updates.items():
