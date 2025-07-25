@@ -32,7 +32,7 @@ def configuration_ui(settings, uploaded_json_file_name):
     st.write(f"📁 Your settings will be saved as: `/model/cfg/{json_file_name}.json`")
 
     if settings:
-        with st.expander(f"⚙️ Uploaded settings are:",expanded=False):
+        with st.expander(f"⚙️ Uploaded settings are:", expanded=False):
             st.json(settings)
     else:
         st.warning(

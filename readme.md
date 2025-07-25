@@ -18,6 +18,7 @@
 - [🔧 Key Features:](#-key-features)
 - [⚠️ Known Issues](#️-known-issues)
   - [1. 🚨 Unused Settings Are Saved](#1--unused-settings-are-saved)
+  - [2. 🚨 Refactor Functions into a Class for Readability and Maintainability](#2--refactor-functions-into-a-class-for-readability-and-maintainability)
 
 # 🚧 Development Status
 The project is currently under active development. During this process, various bugs may arise and are being addressed regularly.
@@ -41,14 +42,14 @@ This project is an AutoML platform designed to streamline machine learning workf
 ---
 
 ## 🚧 Phase 2: Advanced Preprocessing & Visualizations (In Progress)
-- [ ] Outlier detection and handling *(🛠 Actively in progress)*
-  - [ ] Visualize outliers *(🛠 Actively in progress)*
-  - [ ] Implement detection methods *(🛠 Actively in progress)*
-  - [ ] Provide options: remove, flag, or adjust outliers
-    - [ ] Cap the outliers 
-    - [ ] Transform the data 
-    - [ ] Impute the outliers 
-    - [ ] Flag outliers as a separate feature
+- [x] Outlier detection and handling 
+  - [x] Visualize outliers 
+  - [x] Implement detection methods 
+  - [x] Provide options: remove, flag, or adjust outliers
+    - [x] Transform the data 
+    - [x] Impute the outliers 
+    - [x] Flag outliers as a separate feature
+    - [x] Remove the outliers
 - [ ] Handle multicollinearity
 - [ ] Imbalanced class handling 
 - [ ] Feature scaling and transformation  
@@ -205,9 +206,13 @@ streamlit run main.py
 
 ## 1. 🚨 Unused Settings Are Saved
 
-- **Description**: All parameter values  are saved to the configuration file, **even if the associated method was not selected or applied**.
-- **Impact**: This leads to unnecessary clutter in the configuration file, making it harder to maintain or understand later.
-  - **Example**: If the user only applies Z-Score on `feature_1`, the app may still save IQR, MAD, LOF, and Isolation Forest params for that column.
-- **Expected Behavior**: Only parameters relevant to the **selected and applied method** for each column should be saved.
+- All parameter values  are saved to the configuration file, **even if the associated method was not selected or applied**.
+- This leads to unnecessary clutter in the configuration file, making it harder to maintain or understand later.
 
-✅ **Improvement Needed**: Filter saved config to include **only the chosen method + its relevant parameters** per feature column.
+## 2. 🚨 Refactor Functions into a Class for Readability and Maintainability
+- Currently, all outlier detection, visualization, and handling logic is implemented as scattered standalone functions.
+- This structure leads to:
+  - Reduced readability and increased cognitive load when navigating the code
+  - Duplication of logic and inconsistent parameter management
+  - Difficulty in maintaining and extending the system
+- All logic should be encapsulated into related class to promote clarity, state reuse, and modular design.

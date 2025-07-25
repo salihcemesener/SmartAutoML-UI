@@ -5,8 +5,12 @@ import streamlit as st
 from scipy.stats import zscore
 import category_encoders as ce  # For Target and Binary Encoding
 from sklearn.ensemble import IsolationForest
-from scipy.spatial.distance import mahalanobis
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import (
+    LabelEncoder,
+    PowerTransformer,
+    RobustScaler,
+    QuantileTransformer,
+)
 from sklearn.neighbors import LocalOutlierFactor
 
 from utils.preprocessing.encoding_methods import (
@@ -148,27 +152,6 @@ def list_outlier_detection_strategies():
             "- Sensitive to n_neighbors.\n"
             "- Distance computations can be expensive.\n\n"
         ),
-        "Mahalanobis Distance": (
-            "Compute the multivariate distance from the mean:\n\n"
-            "D² = (x - μ)^T Σ⁻¹ (x - μ)\n\n"
-            "- `μ`: mean vector of the features\n"
-            "- `Σ`: covariance matrix of the features\n\n"
-            "**Hyperparameters**:\n\n"
-            "- `threshold` (float): maximum squared distance allowed.\n"
-            "  This value is chosen from the chi-square distribution with p degrees of freedom,\n"
-            "  so that approximately (1 – α)% of data falls within the normal ellipse.\n"
-            "  For example, with p=2 and α=0.05, threshold ≈ 5.99 covers ~95% of points.\n\n"
-            "**Pros**:\n\n"
-            "- Accounts for feature correlations and scale differences.\n"
-            "- Defines an elliptical decision boundary matching the data shape.\n\n"
-            "**Cons**:\n\n"
-            "- Requires a well-conditioned covariance matrix.\n"
-            "- Unstable if features are collinear or sample size is small.\n\n"
-            "**How it works**:\n\n"
-            "- Center data by subtracting μ so the cloud is at the origin.\n"
-            "- ‘Whiten’ data by applying Σ⁻¹/², rescaling each direction by its variance.\n"
-            "- Compute Euclidean length in this whitened space; points beyond the threshold ellipse are outliers.\n\n"
-        ),
     }
     return outlier_detection_options
 
@@ -194,8 +177,8 @@ def get_missing_value_options():
     return numerical_missing_options, categorical_missing_options
 
 
-def get_outlier_removal_options():
-    outlier_removal_options = {
+def get_outlier_handler_options():
+    outlier_handler_options = {
         "remove": (
             "Completely removes rows containing outliers from the dataset. "
             "Reduces dataset size, which may affect class balance. Recommended when outliers are extreme and clearly invalid."
@@ -216,8 +199,32 @@ def get_outlier_removal_options():
             "Takes no action on detected outliers. "
             "Outliers remain unchanged. Ideal for exploratory analysis or if another process will handle them."
         ),
+        "log": (
+            "Applies a log(x + 1) transformation to compress large values. "
+            "Only applicable to strictly positive data."
+        ),
+        "sqrt": (
+            "Applies a square root transformation to reduce the effect of large values. "
+            "Only applicable to non-negative data."
+        ),
+        "box-cox": (
+            "Applies the Box-Cox power transformation to make data more normally distributed. "
+            "Requires all values to be positive."
+        ),
+        "yeo-johnson": (
+            "A power transformation similar to Box-Cox, but supports zero and negative values. "
+            "Useful for stabilizing variance and normalizing skewed data."
+        ),
+        "robust-scaler": (
+            "Scales data using the median and IQR instead of mean and standard deviation. "
+            "Robust to outliers and preserves relative relationships."
+        ),
+        "quantile": (
+            "Maps feature values to a normal or uniform distribution based on quantile ranks. "
+            "Effectively handles outliers by spreading out dense regions and compressing sparse ones."
+        ),
     }
-    return outlier_removal_options
+    return outlier_handler_options
 
 
 def apply_numeric_fill_method(fill_method_name, df, col):
@@ -604,7 +611,7 @@ def apply_outlier_detection(fill_method_name, df, col):
 
             model = IsolationForest(
                 contamination=contamination,
-                max_features=max_features/series.shape[0],
+                max_features=max_features / series.shape[0],
                 random_state=42,
             )
             preds = model.fit_predict(series.values.reshape(-1, 1))
@@ -636,7 +643,6 @@ def apply_outlier_detection(fill_method_name, df, col):
                 key=f"set_lof_neighbors_{col}",
             )
 
-
             st.session_state[f"LOF_contamination_{col}"] = contamination
             st.session_state[f"LOF_n_neighbors_{col}"] = n_neighbors
             st.session_state[f"LOF_metric_{col}"] = metric
@@ -648,33 +654,6 @@ def apply_outlier_detection(fill_method_name, df, col):
             outlier_indices = df.index[preds == -1].tolist()
             return (
                 f"📍 LOF: Detected {len(outlier_indices)} outliers (neighbors = {n_neighbors}).",
-                outlier_indices,
-            )
-
-        elif fill_method_name == "Mahalanobis Distance":
-            threshold = st.session_state.get(f"Mahalanobis_th_{col}", 20.0)
-            threshold = st.slider(
-                "Set Mahalanobis distance threshold:",
-                min_value=0.0,
-                max_value=100.0,
-                value=float(threshold),
-                step=1.0,
-                key=f"set_mahal_th_{col}",
-            )
-            st.session_state[f"Mahalanobis_th_{col}"] = threshold
-
-            data = series.values.reshape(-1, 1)
-            mean_vec = np.mean(data, axis=0)
-            cov_matrix = np.cov(data.T)
-            try:
-                inv_cov = np.linalg.inv(cov_matrix)
-            except np.linalg.LinAlgError:
-                inv_cov = np.linalg.pinv(cov_matrix)
-
-            distances = np.array([mahalanobis(x, mean_vec, inv_cov) for x in data])
-            outlier_indices = df.index[distances > threshold].tolist()
-            return (
-                f"📈 Mahalanobis: Detected {len(outlier_indices)} outliers (threshold = {threshold:.1f}).",
                 outlier_indices,
             )
 
@@ -691,15 +670,17 @@ def apply_outlier_detection(fill_method_name, df, col):
         )
 
 
-def apply_outlier_removal(df, col, outlier_indices, method="remove"):
+def apply_outlier_handler(df, col, outlier_indices, method="remove"):
     if not outlier_indices:
         return df, f"No outliers to handle in `{col}`."
+
     if method == "skip":
-        return df, f"Outliers not handle in `{col}`."
+        return df, f"Outliers not handled in `{col}`."
 
     if method == "remove":
         df = df.drop(index=outlier_indices)
         return df, f"✅ Removed {len(outlier_indices)} outliers from `{col}`."
+
     elif method == "impute_median":
         median = df[col].median()
         df.loc[outlier_indices, col] = median
@@ -707,6 +688,7 @@ def apply_outlier_removal(df, col, outlier_indices, method="remove"):
             df,
             f"🩺 Imputed {len(outlier_indices)} outliers in `{col}` with median: {median:.3f}",
         )
+
     elif method == "impute_mean":
         mean = df[col].mean()
         df.loc[outlier_indices, col] = mean
@@ -719,10 +701,68 @@ def apply_outlier_removal(df, col, outlier_indices, method="remove"):
         if f"{col}_is_outlier" not in df.columns:
             df[f"{col}_is_outlier"] = False
         df.loc[outlier_indices, f"{col}_is_outlier"] = True
-
         return (
             df,
             f"🏷️ Flagged {len(outlier_indices)} outliers in new column `{col}_is_outlier`.",
         )
+
+    elif method == "log":
+        if (df[col] < 0).any():
+            return (
+                df,
+                f"❌ Log transform cannot be applied to negative values in `{col}`.",
+            )
+        df[col] = np.log1p(df[col])
+        return df, f"📉 Applied log(x+1) transform on `{col}` to compress large values."
+
+    elif method == "sqrt":
+        if (df[col] < 0).any():
+            return (
+                df,
+                f"❌ Square root transform cannot be applied to negative values in `{col}`.",
+            )
+        df[col] = np.sqrt(df[col])
+        return df, f"🟪 Applied square root transform on `{col}` for mild compression."
+
+    elif method == "box-cox":
+        try:
+            pt = PowerTransformer(method="box-cox", standardize=True)
+            df[col] = pt.fit_transform(df[[col]])
+            return df, f"📦 Applied Box-Cox transformation on `{col}`."
+        except Exception as e:
+            return (
+                df,
+                f"❌ Box-Cox failed for `{col}`: {repr(e)} (Requires all values > 0).",
+            )
+
+    elif method == "yeo-johnson":
+        try:
+            pt = PowerTransformer(method="yeo-johnson", standardize=True)
+            df[col] = pt.fit_transform(df[[col]])
+            return (
+                df,
+                f"🔁 Applied Yeo-Johnson transformation on `{col}` (handles negatives).",
+            )
+        except Exception as e:
+            return df, f"❌ Yeo-Johnson failed for `{col}`: {repr(e)}."
+
+    elif method == "robust-scaler":
+        try:
+            scaler = RobustScaler()
+            df[col] = scaler.fit_transform(df[[col]])
+            return df, f"⚖️ Applied RobustScaler on `{col}` (uses median and IQR)."
+        except Exception as e:
+            return df, f"❌ RobustScaler failed for `{col}`: {repr(e)}."
+
+    elif method == "quantile":
+        try:
+            qt = QuantileTransformer(output_distribution="normal")
+            df[col] = qt.fit_transform(df[[col]])
+            return (
+                df,
+                f"📊 Applied QuantileTransformer on `{col}` to normalize distribution.",
+            )
+        except Exception as e:
+            return df, f"❌ Quantile transform failed for `{col}`: {repr(e)}."
 
     return df, f"⚠️ Unknown outlier handling method `{method}`."

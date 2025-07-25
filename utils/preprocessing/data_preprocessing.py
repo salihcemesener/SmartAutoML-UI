@@ -8,12 +8,12 @@ from utils.preprocessing.data_preprocessing_utils import (
     get_missing_value_options,
     get_categorical_encoding_options,
     list_outlier_detection_strategies,
-    get_outlier_removal_options,
+    get_outlier_handler_options,
     apply_numeric_fill_method,
     apply_categorical_fill_method,
     apply_categorical_to_numerical,
     apply_outlier_detection,
-    apply_outlier_removal,
+    apply_outlier_handler,
 )
 from utils.plot_utils.plotting import feature_outlier_analysis
 
@@ -396,7 +396,6 @@ def init_outlier_params_for_col(df, col, existing_methods):
         f"LOF_n_neighbors_{col}": 20.0,
         f"LOF_contamination_{col}": 0.05,
         f"LOF_metric_{col}": "euclidean",
-        f"Mahalanobis_th_{col}": 20.0,
         f"Handling_method_to_remove_outliers_{col}": [
             "remove",
             "impute_median",
@@ -433,7 +432,7 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
         init_outlier_params_for_col(df, col, existing_methods)
 
     outlier_detection_options = list_outlier_detection_strategies()
-    outlier_removal_options = get_outlier_removal_options()
+    outlier_removal_options = get_outlier_handler_options()
 
     st.session_state["selected_target_col"] = st.selectbox(
         "Visualize outliers by using target as:",
@@ -542,9 +541,8 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
             st.session_state[f"LOF_n_neighbors_{col}"] = default_method[11]
             st.session_state[f"LOF_contamination_{col}"] = default_method[12]
             st.session_state[f"LOF_metric_{col}"] = default_method[13]
-            st.session_state[f"Mahalanobis_th_{col}"] = default_method[14]
             st.session_state[f"Handling_method_to_remove_outliers_{col}"] = (
-                default_method[15]
+                default_method[14]
             )
 
             outlier_detection_method = st.selectbox(
@@ -574,7 +572,7 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
                     ].index(st.session_state.get(f"LOF_metric_{col}", "euclidean")),
                     key=f"lof_metric_selectbox_{col}",
                 )
-            outlier_removal_method = st.selectbox(
+            outler_handler_method = st.selectbox(
                 f"How would you like to handle detected outliers in `{col}`?",
                 options=outlier_removal_options.keys(),
                 help=f"Select a method for outlier removal in {col}.",
@@ -588,11 +586,11 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
                     )
                 )
 
-                df, outlier_removal_output = apply_outlier_removal(
+                df, outlier_handler_output = apply_outlier_handler(
                     df=df,
                     col=col,
                     outlier_indices=detected_outlier_indices,
-                    method=outlier_removal_method,
+                    method=outler_handler_method,
                 )
                 for element in handling_method_for_remove_outliers:
                     if col in element:
@@ -621,18 +619,21 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
                             st.session_state.get(f"LOF_n_neighbors_{col}"),
                             st.session_state.get(f"LOF_contamination_{col}"),
                             st.session_state.get(f"LOF_metric_{col}"),
-                            st.session_state.get(f"Mahalanobis_th_{col}"),
                             st.session_state.get(
                                 f"Handling_method_to_remove_outliers_{col}"
                             ),
                         ]
 
                 st.info(
-                    f"🧪 **Outlier Detection Result:**\n\n{outlier_detection_output}\n\n**Outlier Removal Result:**\n\n{outlier_removal_output}"
+                    f"🧪 **Outlier Detection Result:**\n\n{outlier_detection_output}\n\n**Outlier Handler Result:**\n\n{outlier_handler_output}"
                 )
+                st.write(
+                    f"📊 Range of `{col}`: **min = {df[col].min()}**, **max = {df[col].max()}**"
+                )
+
             except Exception as error:
                 st.error(
-                    f"🚨 Error occurred when remove outliers with {outlier_detection_method} at {col}. Error: {repr(error)}"
+                    f"🚨 Error occurred when detect outliers with {outlier_detection_method} and handle outlier with {outler_handler_method} at {col}. Error: {repr(error)}"
                 )
 
             settings = save_configuration_if_updated(
