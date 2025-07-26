@@ -396,13 +396,9 @@ def init_outlier_params_for_col(df, col, existing_methods):
         f"LOF_n_neighbors_{col}": 20.0,
         f"LOF_contamination_{col}": 0.05,
         f"LOF_metric_{col}": "euclidean",
-        f"Handling_method_to_remove_outliers_{col}": [
-            "remove",
-            "impute_median",
-            "impute_mean",
-            "mark",
-            "skip",
-        ],
+        f"Handling_method_to_remove_outliers_{col}": "remove",
+        f"Winsorization_Handler_upper_percentile_{col}": 95.0,
+        f"Winsorization_Handler_lower_percentile_{col}": 5.0,
     }
 
     for key, default in defaults.items():
@@ -516,8 +512,9 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
                     20.0,
                     0.05,
                     "euclidean",
-                    20.0,
                     next(iter(outlier_removal_options.keys())),
+                    5.0,
+                    95.0,
                 ]
             )
             st.session_state[f"z_score_th_{col}"] = default_method[1]
@@ -544,6 +541,12 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
             st.session_state[f"Handling_method_to_remove_outliers_{col}"] = (
                 default_method[14]
             )
+            st.session_state[f"Winsorization_Handler_lower_percentile_{col}"] = (
+                default_method[15]
+            )
+            st.session_state[f"Winsorization_Handler_upper_percentile_{col}"] = (
+                default_method[16]
+            )
 
             outlier_detection_method = st.selectbox(
                 f"How to outlier detect in {col}?",
@@ -552,37 +555,24 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
                 index=list(outlier_detection_options.keys()).index(default_method[0]),
                 key=f"outlier_detection_selectbox_{col}",
             )
-            if outlier_detection_method == "Local Outlier Factor (LOF)":
-                st.session_state[f"LOF_metric_{col}"] = st.selectbox(
-                    f"📐 Select distance metric for LOF to detect outliers in `{col}`:",
-                    options=[
-                        "euclidean",
-                        "manhattan",
-                        "chebyshev",
-                        "minkowski",
-                        "cosine",
-                    ],
-                    help="Choose the distance metric used in LOF (Local Outlier Factor). Affects how outlier distances are calculated.",
-                    index=[
-                        "euclidean",
-                        "manhattan",
-                        "chebyshev",
-                        "minkowski",
-                        "cosine",
-                    ].index(st.session_state.get(f"LOF_metric_{col}", "euclidean")),
-                    key=f"lof_metric_selectbox_{col}",
+
+            st.session_state[f"Handling_method_to_remove_outliers_{col}"] = (
+                st.selectbox(
+                    f"How would you like to handle detected outliers in `{col}`?",
+                    options=outlier_removal_options.keys(),
+                    help=f"Select a method for outlier removal in {col}.",
+                    index=list(outlier_removal_options.keys()).index(
+                        default_method[14]
+                    ),
+                    key=f"outlier_removal_selectbox_{col}",
                 )
-            outler_handler_method = st.selectbox(
-                f"How would you like to handle detected outliers in `{col}`?",
-                options=outlier_removal_options.keys(),
-                help=f"Select a method for outlier removal in {col}.",
-                index=list(outlier_removal_options.keys()).index(default_method[15]),
-                key=f"outlier_removal_selectbox_{col}",
             )
             try:
                 outlier_detection_output, detected_outlier_indices = (
                     apply_outlier_detection(
-                        fill_method_name=outlier_detection_method, df=df, col=col
+                        fill_method_name=outlier_detection_method,
+                        df=df,
+                        col=col,
                     )
                 )
 
@@ -590,7 +580,9 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
                     df=df,
                     col=col,
                     outlier_indices=detected_outlier_indices,
-                    method=outler_handler_method,
+                    method=st.session_state[
+                        f"Handling_method_to_remove_outliers_{col}"
+                    ],
                 )
                 for element in handling_method_for_remove_outliers:
                     if col in element:
@@ -622,6 +614,12 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
                             st.session_state.get(
                                 f"Handling_method_to_remove_outliers_{col}"
                             ),
+                            st.session_state.get(
+                                f"Winsorization_Handler_lower_percentile_{col}"
+                            ),
+                            st.session_state.get(
+                                f"Winsorization_Handler_upper_percentile_{col}"
+                            ),
                         ]
 
                 st.info(
@@ -633,7 +631,7 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
 
             except Exception as error:
                 st.error(
-                    f"🚨 Error occurred when detect outliers with {outlier_detection_method} and handle outlier with {outler_handler_method} at {col}. Error: {repr(error)}"
+                    f"🚨 Error occurred when detect outliers with {outlier_detection_method} and handle outlier with {outlier_handler_method} at {col}. Error: {repr(error)}"
                 )
 
             settings = save_configuration_if_updated(

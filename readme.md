@@ -18,7 +18,7 @@
 - [🔧 Key Features:](#-key-features)
 - [⚠️ Known Issues](#️-known-issues)
   - [1. 🚨 Unused Settings Are Saved](#1--unused-settings-are-saved)
-  - [2. 🚨 Refactor Functions into a Class for Readability and Maintainability](#2--refactor-functions-into-a-class-for-readability-and-maintainability)
+  - [2. 🚨 Refactor Functions into a Class for Readability and Maintainability - *(🔧 Work In Progress)*](#2--refactor-functions-into-a-class-for-readability-and-maintainability----work-in-progress)
 
 # 🚧 Development Status
 The project is currently under active development. During this process, various bugs may arise and are being addressed regularly.
@@ -182,7 +182,7 @@ streamlit run main.py
    - Drop unnecessary columns – ✅
    - Fill in missing values – ✅
    - Convert categorical columns to numerical – ✅
-   - Remove outliers via "Visualize Column" – 🔧
+   - Remove outliers via "Visualize Column" – ✅
    - Handle multicollinearity – 🔧
    - Address class imbalance – 🔧
    - Apply feature scaling – 🔧
@@ -209,7 +209,7 @@ streamlit run main.py
 - All parameter values  are saved to the configuration file, **even if the associated method was not selected or applied**.
 - This leads to unnecessary clutter in the configuration file, making it harder to maintain or understand later.
 
-## 2. 🚨 Refactor Functions into a Class for Readability and Maintainability
+## 2. 🚨 Refactor Functions into a Class for Readability and Maintainability - *(🔧 Work In Progress)*
 - Currently, all outlier detection, visualization, and handling logic is implemented as scattered standalone functions.
 - This structure leads to:
   - Reduced readability and increased cognitive load when navigating the code

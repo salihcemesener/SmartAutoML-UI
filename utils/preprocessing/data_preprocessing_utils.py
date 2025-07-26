@@ -4,14 +4,15 @@ import pandas as pd
 import streamlit as st
 from scipy.stats import zscore
 import category_encoders as ce  # For Target and Binary Encoding
+from scipy.stats.mstats import winsorize
 from sklearn.ensemble import IsolationForest
+from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import (
     LabelEncoder,
     PowerTransformer,
     RobustScaler,
     QuantileTransformer,
 )
-from sklearn.neighbors import LocalOutlierFactor
 
 from utils.preprocessing.encoding_methods import (
     target_encoding,
@@ -221,7 +222,16 @@ def get_outlier_handler_options():
         ),
         "quantile": (
             "Maps feature values to a normal or uniform distribution based on quantile ranks. "
-            "Effectively handles outliers by spreading out dense regions and compressing sparse ones."
+            "It transforms the feature so that its distribution matches a target distribution (e.g., Gaussian or uniform). "
+            "Effectively handles outliers by spreading out dense regions and compressing sparse ones. "
+            "Useful for making skewed data more Gaussian-like, especially before applying linear models."
+        ),
+        "winsorize": (
+            "Limits (caps) extreme values to specified percentiles — for example, values below the 5th percentile "
+            "are set to the 5th percentile value, and those above the 95th percentile are set to the 95th. "
+            "This reduces the influence of outliers while preserving dataset size. "
+            "Unlike detection-based methods, it does not identify outliers but modifies them to reduce their effect. "
+            "Ideal for models sensitive to extreme values, such as linear regression."
         ),
     }
     return outlier_handler_options
@@ -643,10 +653,29 @@ def apply_outlier_detection(fill_method_name, df, col):
                 key=f"set_lof_neighbors_{col}",
             )
 
+            metric = st.selectbox(
+                f"📐 Select distance metric for LOF to detect outliers in `{col}`:",
+                options=[
+                    "euclidean",
+                    "manhattan",
+                    "chebyshev",
+                    "minkowski",
+                    "cosine",
+                ],
+                help="Choose the distance metric used in LOF (Local Outlier Factor). Affects how outlier distances are calculated.",
+                index=[
+                    "euclidean",
+                    "manhattan",
+                    "chebyshev",
+                    "minkowski",
+                    "cosine",
+                ].index(st.session_state.get(f"LOF_metric_{col}", "euclidean")),
+                key=f"lof_metric_selectbox_{col}",
+            )
+
             st.session_state[f"LOF_contamination_{col}"] = contamination
             st.session_state[f"LOF_n_neighbors_{col}"] = n_neighbors
             st.session_state[f"LOF_metric_{col}"] = metric
-
             lof = LocalOutlierFactor(
                 contamination=contamination, n_neighbors=int(n_neighbors), metric=metric
             )
@@ -765,4 +794,49 @@ def apply_outlier_handler(df, col, outlier_indices, method="remove"):
         except Exception as e:
             return df, f"❌ Quantile transform failed for `{col}`: {repr(e)}."
 
+    elif method == "winsorize":
+        try:
+            lower_percentile = st.session_state.get(
+                f"Winsorization_Handler_lower_percentile_{col}", 5.0
+            )
+            upper_percentile = st.session_state.get(
+                f"Winsorization_Handler_upper_percentile_{col}", 95.0
+            )
+
+            lower_percentile = st.slider(
+                "Set lower percentile cap (e.g., 5 means values below 5th percentile will be capped):",
+                min_value=0.0,
+                max_value=49.0,
+                value=float(lower_percentile),
+                step=1.0,
+                key=f"set_winsorize_handler_lower_{col}",
+            )
+            upper_percentile = st.slider(
+                "Set upper percentile cap (e.g., 95 means values above 95th percentile will be capped):",
+                min_value=51.0,
+                max_value=100.0,
+                value=float(upper_percentile),
+                step=1.0,
+                key=f"set_winsorize_handler_upper_{col}",
+            )
+
+            st.session_state[f"Winsorization_Handler_lower_percentile_{col}"] = (
+                lower_percentile
+            )
+            st.session_state[f"Winsorization_Handler_upper_percentile_{col}"] = (
+                upper_percentile
+            )
+
+            lower_prop = lower_percentile / 100.0
+            upper_prop = 1 - (upper_percentile / 100.0)
+
+            df[col] = winsorize(df[col], limits=(lower_prop, upper_prop))
+
+            return (
+                df,
+                f"🔧 Winsorized `{col}` using {lower_percentile:.0f}–{upper_percentile:.0f} percentile caps.",
+            )
+
+        except Exception as e:
+            return df, f"❌ Winsorization failed for `{col}`: {repr(e)}."
     return df, f"⚠️ Unknown outlier handling method `{method}`."
