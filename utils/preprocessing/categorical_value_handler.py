@@ -77,16 +77,18 @@ class CategoricalValueHandler(DataPreprocessorHandler):
 
             for col in categorical_cols:
                 st.info(f"Column **{col}** has {df[col].nunique()} unique values.")
-                default = st.session_state["existing_method_categorical_values"].get(
-                    col,
-                    [
-                        next(iter(self.encoding_options.keys())),
-                        5,
-                        df.columns[0],
-                        10.0,
-                        None,
-                    ],
-                )
+
+                fallback = [
+                    next(iter(self.encoding_options.keys())),  # encoding method
+                    5,                                         # top-N categories
+                    df.columns[0],                             # target column for impact-based methods
+                    10.0,                                      # frequency threshold, or smoothing param
+                    None,                                      # custom encoder or fallback
+                ]
+                if not st.session_state["existing_method_categorical_values"].get(col):
+                    st.session_state["existing_method_categorical_values"][col] = fallback
+                default = st.session_state["existing_method_categorical_values"][col]
+
                 method = st.selectbox(
                     f"Encoding method for {col}",
                     options=list(self.encoding_options.keys()),

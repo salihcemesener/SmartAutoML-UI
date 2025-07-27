@@ -19,6 +19,7 @@ class MissingValueHandler(DataPreprocessorHandler):
         st.session_state.setdefault("existing_method_missing_values", {})
 
     def init_parameters_for_col(self, df, missing_values):
+        
         for col in missing_values:
             key = f"custom_value_{col}"
             st.session_state.setdefault(
@@ -73,13 +74,13 @@ class MissingValueHandler(DataPreprocessorHandler):
             settings, "Missing_value_handle_methods", missing_values.index
         )
 
+        self.init_parameters_for_col(df, missing_values=missing_values.index)
+
         # Upload saved settings
         for element in config_list:
             col = next(iter(element))
             if col not in st.session_state["existing_method_missing_values"]:
                 st.session_state["existing_method_missing_values"][col] = element[col]
-
-        self.init_parameters_for_col(df, missing_values=missing_values.index)
 
         with st.expander("Impute or Remove Missing Values", expanded=False):
             self._display_missing_value_options_help()
@@ -91,10 +92,13 @@ class MissingValueHandler(DataPreprocessorHandler):
                     if is_numeric
                     else self.categorical_missing_options
                 )
-                default_method = st.session_state["existing_method_missing_values"].get(
-                    col, [next(iter(options.keys())), None]
-                )
-                st.session_state[f"custom_value_{col}"] = default_method[1]
+               
+                if not st.session_state["existing_method_missing_values"].get(col):  
+                    st.session_state["existing_method_missing_values"][col] = [next(iter(options.keys())), None]
+
+                default_method = st.session_state["existing_method_missing_values"][col]
+                
+                st.session_state[f"custom_value_{col}"] = default_method[1] 
 
                 method = st.selectbox(
                     f"Handle missing values in {'numeric' if is_numeric else 'categorical'} column `{col}` (missing: {df[col].isnull().sum()})",

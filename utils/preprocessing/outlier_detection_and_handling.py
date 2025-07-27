@@ -71,68 +71,60 @@ class OutlierDetectionAndHandler(DataPreprocessorHandler):
                                 container=cols[j],
                             )
 
-    def set_target_column(self, label, columns):
-        st.session_state["remove_outliers_target_col"] = st.selectbox(
-            label=label,
-            options=columns,
-            index=list(columns).index(st.session_state["remove_outliers_target_col"]),
-            key=f"remove_outliers_set_target_col",
-        )
+    def init_parameters_for_col(self, df):
+        for col in df.columns:
+            defaults = {
+                "selected_target_col": col,
+                f"z_score_th_{col}": 3.0,
+                f"IQR_multiplier_{col}": 1.5,
+                f"MAD_scale_factor_{col}": 1.4826,
+                f"MAD_th_{col}": 3.0,
+                f"Winsorization_upper_percentile_{col}": 95.0,
+                f"Winsorization_lower_percentile_{col}": 5.0,
+                f"Isolation_Forest_n_estimators_{col}": 100.0,
+                f"Isolation_Forest_max_samples_{col}": "auto",
+                f"Isolation_Forest_contamination_{col}": 0.05,
+                f"Isolation_Forest_max_features_{col}": 5.0,
+                f"LOF_n_neighbors_{col}": 20.0,
+                f"LOF_contamination_{col}": 0.05,
+                f"LOF_metric_{col}": "euclidean",
+                f"Handling_method_to_remove_outliers_{col}": "remove",
+                f"Winsorization_Handler_upper_percentile_{col}": 95.0,
+                f"Winsorization_Handler_lower_percentile_{col}": 5.0,
+            }
 
-    def init_parameters_for_col(self, df, col):
-        if "remove_outliers_target_col" not in st.session_state:
-            st.session_state["remove_outliers_target_col"] = st.session_state[
-                "existing_method_remove_outliers"
-            ].get("remove_outliers_target_col", df.columns[0])
-        defaults = {
-            "selected_target_col": col,
-            f"z_score_th_{col}": 3.0,
-            f"IQR_multiplier_{col}": 1.5,
-            f"MAD_scale_factor_{col}": 1.4826,
-            f"MAD_th_{col}": 3.0,
-            f"Winsorization_upper_percentile_{col}": 95.0,
-            f"Winsorization_lower_percentile_{col}": 5.0,
-            f"Isolation_Forest_n_estimators_{col}": 100.0,
-            f"Isolation_Forest_max_samples_{col}": "auto",
-            f"Isolation_Forest_contamination_{col}": 0.05,
-            f"Isolation_Forest_max_features_{col}": 5.0,
-            f"LOF_n_neighbors_{col}": 20.0,
-            f"LOF_contamination_{col}": 0.05,
-            f"LOF_metric_{col}": "euclidean",
-            f"Handling_method_to_remove_outliers_{col}": "remove",
-            f"Winsorization_Handler_upper_percentile_{col}": 95.0,
-            f"Winsorization_Handler_lower_percentile_{col}": 5.0,
-        }
-
-        for key, default in defaults.items():
-            if key not in st.session_state:
-                st.session_state[key] = st.session_state[
-                    "existing_method_remove_outliers"
-                ].get(key, default)
+            for key, default in defaults.items():
+                if key not in st.session_state:
+                    st.session_state[key] = st.session_state[
+                        "existing_method_remove_outliers"
+                    ].get(key, default)
 
     def run(self, df, settings, saved_configuration_file):
         original_shape = df.shape
+        
         self.display_info(df=df)
+
         config_list = self.sync_column_config_list(
             settings, "Remove_outliers_handle_methods", df.columns
         )
-
         for element in config_list:
             col = next(iter(element))
             if col not in st.session_state["existing_method_remove_outliers"]:
                 st.session_state["existing_method_remove_outliers"][col] = element[col]
-        for col in df.columns:
-            self.init_parameters_for_col(df, col)
 
-        st.session_state["selected_target_col"] = st.selectbox(
+        self.init_parameters_for_col(df)
+
+        
+        st.session_state["remove_outliers_target_col"] = st.selectbox(
             "Visualize outliers by using target as:",
             options=df.columns.tolist(),
             index=df.columns.get_loc(
-                st.session_state.get("remove_outliers_target_col", df.columns[0])
+                df.columns[0]
             ),
-            key="remove_outliers_target_col",
+            key="remove_outliers_target_col_plot",
             help="This column will be used as the grouping variable in the box‐plots and as the y-axis in the joint‐plot.",
         )
+
         with st.expander("📈 Outlier Detection & Handling", expanded=False):
             st.markdown(
                 "<h3>Outlier Detection & Handling in the Dataset</h3>",
@@ -273,13 +265,16 @@ class OutlierDetectionAndHandler(DataPreprocessorHandler):
                             type_of_method="outlier_detection",
                         )
                     )
-                    self.display_plot(df=df, col=col)
+                    
                     df, outlier_handler_output = self.apply_method(
                         df=df,
                         col=col,
                         type_of_method="outlier_handling",
                         detected_outlier_indices=detected_outlier_indices,
                     )
+                    
+                    self.display_plot(df=df, col=col)
+                    
                     for element in config_list:
                         if col in element:
                             element[col] = [
