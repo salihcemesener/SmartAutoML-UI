@@ -101,7 +101,7 @@ class OutlierDetectionAndHandler(DataPreprocessorHandler):
 
     def run(self, df, settings, saved_configuration_file):
         original_shape = df.shape
-
+        
         self.display_info(df=df)
 
         config_list = self.sync_column_config_list(
@@ -114,10 +114,13 @@ class OutlierDetectionAndHandler(DataPreprocessorHandler):
 
         self.init_parameters_for_col(df)
 
+        
         st.session_state["remove_outliers_target_col"] = st.selectbox(
             "Visualize outliers by using target as:",
             options=df.columns.tolist(),
-            index=df.columns.get_loc(df.columns[0]),
+            index=df.columns.get_loc(
+                df.columns[0]
+            ),
             key="remove_outliers_target_col_plot",
             help="This column will be used as the grouping variable in the box‐plots and as the y-axis in the joint‐plot.",
         )
@@ -262,16 +265,16 @@ class OutlierDetectionAndHandler(DataPreprocessorHandler):
                             type_of_method="outlier_detection",
                         )
                     )
-
+                    
                     df, outlier_handler_output = self.apply_method(
                         df=df,
                         col=col,
                         type_of_method="outlier_handling",
                         detected_outlier_indices=detected_outlier_indices,
                     )
-
+                    
                     self.display_plot(df=df, col=col)
-
+                    
                     for element in config_list:
                         if col in element:
                             element[col] = [
@@ -323,14 +326,14 @@ class OutlierDetectionAndHandler(DataPreprocessorHandler):
                         f"🚨 Error occurred when detect outliers with {outlier_detection_method} and handle outlier with {st.session_state[f'Handling_method_to_remove_outliers_{col}']} at {col}. Error: {repr(error)}"
                     )
 
-                settings = save_configuration_if_updated(
-                    config_file_name=saved_configuration_file,
-                    new_config_data=config_list,
-                    config_data_key="Remove_outliers_handle_methods",
-                )
                 st.warning(
                     f"📏 Dataset size changed from **{original_shape}** to **{df.shape}** after applying outlier removal."
                 )
+            settings = save_configuration_if_updated(
+                config_file_name=saved_configuration_file,
+                new_config_data=config_list,
+                config_data_key="Remove_outliers_handle_methods",
+            )
         st.write(f"**Shape (Before → After):** {original_shape} → {df.shape}")
         return df, settings
 

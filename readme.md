@@ -49,7 +49,14 @@ This project is an AutoML platform designed to streamline machine learning workf
     - [x] Impute the outliers 
     - [x] Flag outliers as a separate feature
     - [x] Remove the outliers
-- [ ] Handle multicollinearity
+- [ ] Handle multicollinearity *(🔧 In Progress)*
+  - [ ] Detection of multicollinearity
+    - [x] Generate Pearson Correlation Heatmap
+    - [ ] Calculate Variance Inflation Factor (VIF) for numerical features
+  - [ ] Handle multicollinearity
+    - [ ] Drop one of the highly correlated columns based on correlation/VIF threshold
+    - [ ] Apply Dimensionality Reduction techniques (e.g., PCA) to correlated feature sets
+    - [ ] Optionally combine correlated columns using transformations (e.g., average, difference, interaction terms)
 - [ ] Imbalanced class handling 
 - [ ] Feature scaling and transformation  
 - [ ] Skew handling and normalization  

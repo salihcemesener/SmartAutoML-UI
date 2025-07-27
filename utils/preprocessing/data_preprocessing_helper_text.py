@@ -211,3 +211,21 @@ class DataPreprocessingOptionsHelperText:
             ),
         }
         return outlier_handler_options
+
+    def list_multicollinearity_detection_options():
+        multicollinearity_detection_options = {
+            "Correlation Matrix (Pearson)": (
+                "Visualizes pairwise linear relationships between numerical features using a heatmap. "
+                "Helps identify highly correlated feature pairs that may introduce redundancy. "
+                "The Pearson correlation coefficient ranges from -1 to 1 and is calculated as:\n"
+                "`corr(X, Y) = cov(X, Y) / (std(X) * std(Y))`"
+            ),
+            "Variance Inflation Factor (VIF)": (
+                "Quantifies how much the variance of a regression coefficient is inflated due to multicollinearity. "
+                "Higher VIF values (typically > 5 or 10) suggest a feature is highly correlated with others "
+                "and may be redundant. The formula is:\n"
+                "`VIF = 1 / (1 - R²)` where R² is the coefficient of determination from regressing the feature "
+                "on all other features."
+            ),
+        }
+        return multicollinearity_detection_options
