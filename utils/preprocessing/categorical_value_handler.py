@@ -11,7 +11,7 @@ from utils.preprocessing.data_preprocessor_abc import DataPreprocessorHandler
 from utils.preprocessing.data_preprocessing_helper_text import (
     DataPreprocessingOptionsHelperText,
 )
-from utils.preprocessing.encoding_methods import (
+from utils.preprocessing.categorical_encoding_methods import (
     target_encoding,
     weighted_target_encoding,
     k_fold_target_encoding,
@@ -61,13 +61,14 @@ class CategoricalValueHandler(DataPreprocessorHandler):
 
         self.init_parameters_for_col(df, categorical_cols)
 
-        # for element in config_list:
-        #     col = next(iter(element))
+        # Upload saved settings
+        for element in config_list:
+            col = next(iter(element))
+            if col not in st.session_state["existing_method_categorical_values"]:
+                st.session_state["existing_method_categorical_values"][col] = element[
+                    col
+                ]
 
-        #     if col not in st.session_state["existing_method_categorical_values"]:
-        #         st.session_state["existing_method_categorical_values"][col] = element[
-        #             col
-        #         ]
         with st.expander("Convert Categorical to Numeric Data", expanded=False):
             st.markdown("<h3>Convert Categorical Columns</h3>", unsafe_allow_html=True)
             st.markdown(
@@ -118,93 +119,142 @@ class CategoricalValueHandler(DataPreprocessorHandler):
         return df, settings
 
     def apply_method(self, df, col, method):
-        columns = df.columns
-        values = df[col].dropna().unique().tolist()
+        try:
+            columns = df.columns
+            st.session_state[f"num_folds_{col}"] = st.session_state.get(
+                f"num_folds_{col}", 5
+            )
+            st.session_state[f"target_col_{col}"] = st.session_state.get(
+                f"target_col_{col}", columns[0]
+            )
+            st.session_state[f"smoothing_factor_{col}"] = st.session_state.get(
+                f"smoothing_factor_{col}", 10.0
+            )
 
-        if method == "Label Encoding":
-            df[col] = LabelEncoder().fit_transform(df[col])
+            unique_vals = df[col].dropna().unique().tolist()
+            default_order = st.session_state.get(f"variable_order_{col}")
 
-        elif method == "One-Hot Encoding":
-            df = pd.get_dummies(df, columns=[col], drop_first=True)
+            if len(unique_vals) > 10:
+                if method == "Ordinal Encoding":
+                    confirm = st.checkbox(
+                        "🚨 That column has many unique values. Are you sure you want to apply ordinal encoding? This setting may significantly increase the size of your JSON configuration file.",
+                        key=f"ordinal_encoding_variable_order_{col}",
+                    )
+                    if confirm:
+                        st.session_state[f"variable_order_{col}"] = (
+                            default_order or unique_vals
+                        )
+            else:
+                st.session_state[f"variable_order_{col}"] = default_order or unique_vals
 
-        elif method == "Frequency Encoding":
-            df[col] = df[col].map(df[col].value_counts())
-
-        elif method == "Ordinal Encoding":
-            if len(values) > 10:
-                confirm = st.checkbox(
-                    f"🚨 High cardinality for `{col}`. Proceed with Ordinal Encoding?",
-                    key=f"ordinal_confirm_{col}",
+            def set_target_column(label):
+                st.session_state[f"target_col_{col}"] = st.selectbox(
+                    label=label,
+                    options=columns,
+                    index=list(columns).index(st.session_state[f"target_col_{col}"]),
+                    key=f"set_target_col_{col}",
                 )
-                if not confirm:
-                    return df
-            selected_order = st.multiselect(
-                f"Set custom order for `{col}`:",
-                values,
-                default=st.session_state[f"variable_order_{col}"] or values,
-                key=f"order_select_{col}",
-            )
-            st.session_state[f"variable_order_{col}"] = selected_order
-            mapping = {val: i for i, val in enumerate(selected_order)}
-            df[col] = df[col].map(mapping)
 
-        elif method == "Binary Encoding":
-            df = ce.BinaryEncoder(cols=[col]).fit_transform(df)
+            def set_smoothing_factor():
+                st.session_state[f"smoothing_factor_{col}"] = st.slider(
+                    "Set smoothing factor:",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=st.session_state[f"smoothing_factor_{col}"],
+                    step=1.0,
+                    key=f"set_smoothing_factor_{col}",
+                )
 
-        elif method == "Target Encoding":
-            st.session_state[f"target_col_{col}"] = st.selectbox(
-                f"Target for encoding `{col}`:",
-                columns,
-                key=f"target_column_select_{col}",
-            )
-            df = target_encoding(df, col, st.session_state[f"target_col_{col}"])
+            def set_num_folds():
+                st.session_state[f"num_folds_{col}"] = st.slider(
+                    "Select number of folds (K):",
+                    min_value=2,
+                    max_value=10,
+                    value=st.session_state[f"num_folds_{col}"],
+                    step=1,
+                    key=f"set_num_folds_{col}",
+                )
 
-        elif method == "Weighted Mean Target Encoding (Bayesian Mean Encoding)":
-            st.session_state[f"target_col_{col}"] = st.selectbox(
-                f"Target for weighted target encoding `{col}`:",
-                columns,
-                key=f"target_column_weighted_{col}",
-            )
-            smoothing = st.slider(
-                "Smoothing factor:",
-                0.0,
-                100.0,
-                st.session_state[f"smoothing_factor_{col}"],
-                key=f"smoothing_slider_{col}",
-            )
-            st.session_state[f"smoothing_factor_{col}"] = smoothing
-            df = weighted_target_encoding(
-                df, col, st.session_state[f"target_col_{col}"], smoothing
-            )
+            if method == "Label Encoding":
+                df[col] = LabelEncoder().fit_transform(df[col])
+                st.success(f"**{col}** converted using Label Encoding.")
 
-        elif method == "K-Fold Target Encoding":
-            st.session_state[f"target_col_{col}"] = st.selectbox(
-                f"Target for K-Fold encoding `{col}`:",
-                columns,
-                key=f"target_column_kfold_{col}",
-            )
-            num_folds = st.slider(
-                "Number of folds:",
-                2,
-                10,
-                st.session_state[f"num_folds_{col}"],
-                key=f"num_folds_slider_{col}",
-            )
-            smoothing = st.slider(
-                "Smoothing factor:",
-                0.0,
-                100.0,
-                st.session_state[f"smoothing_factor_{col}"],
-                key=f"smoothing_slider_kfold_{col}",
-            )
-            st.session_state[f"num_folds_{col}"] = num_folds
-            st.session_state[f"smoothing_factor_{col}"] = smoothing
-            df = k_fold_target_encoding(
-                df, col, st.session_state[f"target_col_{col}"], num_folds, smoothing
-            )
+            elif method == "One-Hot Encoding":
+                df = pd.get_dummies(df, columns=[col], drop_first=True)
+                st.success(f"**{col}** converted using One-Hot Encoding.")
 
-        else:
-            st.warning(f"Unsupported method `{method}` for `{col}`.")
+            elif method == "Frequency Encoding":
+                df[col] = df[col].map(df[col].value_counts())
+                st.success(f"**{col}** converted using Frequency Encoding.")
 
-        st.success(f"✅ Applied `{method}` to `{col}`.")
-        return df
+            elif method == "Ordinal Encoding":
+                st.session_state[f"variable_order_{col}"] = st.multiselect(
+                    f"Define the custom order for **{col}**:",
+                    df[col].dropna().unique().tolist(),
+                    default=st.session_state[f"variable_order_{col}"],
+                    help="Manually define the meaningful order (e.g., Low < Medium < High).",
+                )
+                mapping = {
+                    val: idx
+                    for idx, val in enumerate(st.session_state[f"variable_order_{col}"])
+                }
+                df[col] = df[col].map(mapping)
+                st.success(f"**{col}** converted using Ordinal Encoding.")
+
+            elif method == "Binary Encoding":
+                df = ce.BinaryEncoder(cols=[col]).fit_transform(df)
+                st.success(f"**{col}** converted using Binary Encoding.")
+
+            elif method == "Target Encoding":
+                set_target_column(
+                    f"Select Target Column for Target Encoding for **{col}**:"
+                )
+                df = target_encoding(df, col, st.session_state[f"target_col_{col}"])
+                st.success(
+                    f"**{col}** converted using Target Encoding based on {st.session_state[f'target_col_{col}']}."
+                )
+
+            elif (
+                method == "Weighted Mean Target Encoding (Bayesian Mean Encoding)"
+            ):
+                set_target_column(
+                    f"Select Target Column for Weighted Mean Target Encoding for **{col}**:"
+                )
+                set_smoothing_factor()
+                df = weighted_target_encoding(
+                    df,
+                    col,
+                    st.session_state[f"target_col_{col}"],
+                    st.session_state[f"smoothing_factor_{col}"],
+                )
+                st.success(
+                    f"**{col}** converted using Weighted Target Encoding with smoothing {st.session_state[f'smoothing_factor_{col}']} based on {st.session_state[f'target_col_{col}']}."
+                )
+
+            elif method == "K-Fold Target Encoding":
+                set_target_column(
+                    f"Select Target Column for K-Fold Target Encoding for **{col}**:"
+                )
+                set_num_folds()
+                set_smoothing_factor()
+                df = k_fold_target_encoding(
+                    df,
+                    col,
+                    st.session_state[f"target_col_{col}"],
+                    num_folds=st.session_state[f"num_folds_{col}"],
+                    smoothing=st.session_state[f"smoothing_factor_{col}"],
+                )
+                st.success(
+                    f"**{col}** converted using K-Fold Target Encoding with {st.session_state[f'num_folds_{col}']} folds and smoothing {st.session_state[f'smoothing_factor_{col}']} based on {st.session_state[f'target_col_{col}']}."
+                )
+
+            else:
+                st.warning(f"No valid encoding method selected for {col}.")
+
+            st.markdown("""---""")
+            return df
+
+        except Exception as e:
+            st.error(f"🚨 Error occurred while encoding **{col}**: {repr(e)}")
+            return df
+

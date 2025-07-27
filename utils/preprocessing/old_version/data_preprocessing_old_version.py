@@ -3,7 +3,12 @@ from io import BytesIO
 import streamlit as st
 from pandas.api.types import is_numeric_dtype, is_object_dtype
 
+from utils.settings_manager import save_configuration_if_updated
 from utils.preprocessing.data_preprocessing_utils import (
+    get_missing_value_options,
+    get_categorical_encoding_options,
+    list_outlier_detection_strategies,
+    get_outlier_handler_options,
     apply_numeric_fill_method,
     apply_categorical_fill_method,
     apply_categorical_to_numerical,
@@ -11,10 +16,6 @@ from utils.preprocessing.data_preprocessing_utils import (
     apply_outlier_handler,
 )
 from utils.plot_utils.plotting import feature_outlier_analysis
-from utils.settings_manager import save_configuration_if_updated
-from utils.preprocessing.data_preprocessing_helper_text import (
-    DataPreprocessingOptionsHelperText,
-)
 
 
 def display_missing_values_info(df):
@@ -76,9 +77,7 @@ def handle_missing_values(df, settings, saved_configuration_file):
         st.write("---")
         return df, settings
 
-    numerical_missing_options, categorical_missing_options = (
-        DataPreprocessingOptionsHelperText.get_missing_value_options()
-    )
+    numerical_missing_options, categorical_missing_options = get_missing_value_options()
     missing_values = display_missing_values_info(df=df)
 
     handling_method_for_missing_value = ensure_value_handling_config(
@@ -220,9 +219,7 @@ def handle_categorical_values(df, settings, saved_configuration_file):
         st.write(f"**Total number of categorical columns:** 0")
         st.write("---")
         return df, settings
-    encoding_options = (
-        DataPreprocessingOptionsHelperText.get_categorical_encoding_options()
-    )
+    encoding_options = get_categorical_encoding_options()
     categorical_cols = display_categorica_values_info(df)
 
     handling_method_for_categorical_value = ensure_value_handling_config(
@@ -430,12 +427,8 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
     for col in df.columns:
         init_outlier_params_for_col(df, col, existing_methods)
 
-    outlier_detection_options = (
-        DataPreprocessingOptionsHelperText.list_outlier_detection_strategies()
-    )
-    outlier_removal_options = (
-        DataPreprocessingOptionsHelperText.get_outlier_handler_options()
-    )
+    outlier_detection_options = list_outlier_detection_strategies()
+    outlier_removal_options = get_outlier_handler_options()
 
     st.session_state["selected_target_col"] = st.selectbox(
         "Visualize outliers by using target as:",
@@ -638,7 +631,7 @@ def handle_remove_outliers(df, settings, saved_configuration_file):
 
             except Exception as error:
                 st.error(
-                    f"🚨 Error occurred when detect outliers with {outlier_detection_method} and handle outlier with {st.session_state[f'Handling_method_to_remove_outliers_{col}']} at {col}. Error: {repr(error)}"
+                    f"🚨 Error occurred when detect outliers with {outlier_detection_method} and handle outlier with {outlier_handler_method} at {col}. Error: {repr(error)}"
                 )
 
             settings = save_configuration_if_updated(

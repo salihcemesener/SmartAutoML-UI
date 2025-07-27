@@ -18,7 +18,6 @@
 - [🔧 Key Features:](#-key-features)
 - [⚠️ Known Issues](#️-known-issues)
   - [1. 🚨 Unused Settings Are Saved](#1--unused-settings-are-saved)
-  - [2. 🚨 Refactor Functions into a Class for Readability and Maintainability - *(🔧 Work In Progress)*](#2--refactor-functions-into-a-class-for-readability-and-maintainability----work-in-progress)
 
 # 🚧 Development Status
 The project is currently under active development. During this process, various bugs may arise and are being addressed regularly.
@@ -209,10 +208,3 @@ streamlit run main.py
 - All parameter values  are saved to the configuration file, **even if the associated method was not selected or applied**.
 - This leads to unnecessary clutter in the configuration file, making it harder to maintain or understand later.
 
-## 2. 🚨 Refactor Functions into a Class for Readability and Maintainability - *(🔧 Work In Progress)*
-- Currently, all outlier detection, visualization, and handling logic is implemented as scattered standalone functions.
-- This structure leads to:
-  - Reduced readability and increased cognitive load when navigating the code
-  - Duplication of logic and inconsistent parameter management
-  - Difficulty in maintaining and extending the system
-- All logic should be encapsulated into related class to promote clarity, state reuse, and modular design.

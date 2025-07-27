@@ -3,7 +3,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 
 
-def feature_outlier_analysis(df, col, target):
+def feature_outlier_analysis_plot(df, col, target):
     sns.set_style("whitegrid")
     figs = []
 

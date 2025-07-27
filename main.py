@@ -1,18 +1,23 @@
-from utils.user_interface.sidebar_ui_utils import load_sidebar_inputs
-from utils.user_interface.ui_layout import (
-    adjust_ui_view,
-    explore_and_preprocess_dataset,
-)
+from utils.runtime_initializer import RuntimeInitializer
+from utils.user_interface.ui_initializer import load_sidebar_inputs, adjust_ui_view
 
-adjust_ui_view()
-df, split_size, seed_number, choosed_task, settings, uploaded_json_file_name = (
-    load_sidebar_inputs()
-)
-df, X_train, X_test, y_train, y_test = explore_and_preprocess_dataset(
-    df=df,
-    split_size=split_size,
-    seed_number=seed_number,
-    choosed_task=choosed_task,
-    settings=settings,
-    uploaded_json_file_name=uploaded_json_file_name,
-)
+
+def main():
+    adjust_ui_view()
+
+    df, split_size, seed, task, settings, config_name = load_sidebar_inputs()
+
+    if df is not None:
+        runtime_initializer = RuntimeInitializer()
+        df = runtime_initializer.run(
+            df=df,
+            split_size=split_size,
+            seed_number=seed,
+            choosed_task=task,
+            settings=settings,
+            uploaded_json_file_name=config_name,
+        )
+
+
+if __name__ == "__main__":
+    main()

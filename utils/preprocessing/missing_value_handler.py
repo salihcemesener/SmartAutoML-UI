@@ -68,10 +68,17 @@ class MissingValueHandler(DataPreprocessorHandler):
             self.print_no_missing_summary(original_shape, df)
             return df, settings
         missing_values = self.display_info(df)
-        
+
         config_list = self.sync_column_config_list(
             settings, "Missing_value_handle_methods", missing_values.index
         )
+
+        # Upload saved settings
+        for element in config_list:
+            col = next(iter(element))
+            if col not in st.session_state["existing_method_missing_values"]:
+                st.session_state["existing_method_missing_values"][col] = element[col]
+
         self.init_parameters_for_col(df, missing_values=missing_values.index)
 
         with st.expander("Impute or Remove Missing Values", expanded=False):
