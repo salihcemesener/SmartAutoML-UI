@@ -80,13 +80,15 @@ class CategoricalValueHandler(DataPreprocessorHandler):
 
                 fallback = [
                     next(iter(self.encoding_options.keys())),  # encoding method
-                    5,                                         # top-N categories
-                    df.columns[0],                             # target column for impact-based methods
-                    10.0,                                      # frequency threshold, or smoothing param
-                    None,                                      # custom encoder or fallback
+                    5,  # top-N categories
+                    df.columns[0],  # target column for impact-based methods
+                    10.0,  # frequency threshold, or smoothing param
+                    None,  # custom encoder or fallback
                 ]
                 if not st.session_state["existing_method_categorical_values"].get(col):
-                    st.session_state["existing_method_categorical_values"][col] = fallback
+                    st.session_state["existing_method_categorical_values"][
+                        col
+                    ] = fallback
                 default = st.session_state["existing_method_categorical_values"][col]
 
                 method = st.selectbox(
@@ -216,9 +218,7 @@ class CategoricalValueHandler(DataPreprocessorHandler):
                     f"**{col}** converted using Target Encoding based on {st.session_state[f'target_col_{col}']}."
                 )
 
-            elif (
-                method == "Weighted Mean Target Encoding (Bayesian Mean Encoding)"
-            ):
+            elif method == "Weighted Mean Target Encoding (Bayesian Mean Encoding)":
                 set_target_column(
                     f"Select Target Column for Weighted Mean Target Encoding for **{col}**:"
                 )
@@ -259,4 +259,3 @@ class CategoricalValueHandler(DataPreprocessorHandler):
         except Exception as e:
             st.error(f"🚨 Error occurred while encoding **{col}**: {repr(e)}")
             return df
-

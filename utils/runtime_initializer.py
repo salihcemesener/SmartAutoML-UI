@@ -7,6 +7,7 @@ from utils.settings_manager import save_configuration_if_updated
 from utils.preprocessing.missing_value_handler import MissingValueHandler
 from utils.preprocessing.categorical_value_handler import CategoricalValueHandler
 from utils.exploratory_data_analysis.data_exploration import display_dataset_summary
+from utils.preprocessing.multicollinearity_handler import MultiCollinearityHandler
 from utils.preprocessing.outlier_detection_and_handling import (
     OutlierDetectionAndHandler,
 )
@@ -17,6 +18,7 @@ class RuntimeInitializer:
         self.missing_value_handler = MissingValueHandler()
         self.categorical_value_handler = CategoricalValueHandler()
         self.outlier_detection_and_handler = OutlierDetectionAndHandler()
+        self.multicollinearity_handler = MultiCollinearityHandler()
         self.X_train, self.X_test, self.y_train, self.y_test = None, None, None, None
 
     def run(
@@ -90,6 +92,19 @@ class RuntimeInitializer:
         if st.checkbox(
             "❓ I have removed outliers and am ready to proceed",
             key="remove_outliers_done",
+        ):
+            st.success("✅ Procedding to handle multicollinearity...")
+        else:
+            return df
+
+        # Step 5: Handle Multicollinearity
+        df, settings = self.multicollinearity_handler.run(
+            df=df, settings=settings, saved_configuration_file=saved_configuration_file
+        )
+
+        if st.checkbox(
+            "❓ I have handle multicollinearity and am ready to proceed",
+            key="handle_multicollinearity_done",
         ):
             st.success(
                 "✅ Dataset preprocessing completed! You can proceed to the next stage."

@@ -19,7 +19,7 @@ class MissingValueHandler(DataPreprocessorHandler):
         st.session_state.setdefault("existing_method_missing_values", {})
 
     def init_parameters_for_col(self, df, missing_values):
-        
+
         for col in missing_values:
             key = f"custom_value_{col}"
             st.session_state.setdefault(
@@ -92,13 +92,16 @@ class MissingValueHandler(DataPreprocessorHandler):
                     if is_numeric
                     else self.categorical_missing_options
                 )
-               
-                if not st.session_state["existing_method_missing_values"].get(col):  
-                    st.session_state["existing_method_missing_values"][col] = [next(iter(options.keys())), None]
+
+                if not st.session_state["existing_method_missing_values"].get(col):
+                    st.session_state["existing_method_missing_values"][col] = [
+                        next(iter(options.keys())),
+                        None,
+                    ]
 
                 default_method = st.session_state["existing_method_missing_values"][col]
-                
-                st.session_state[f"custom_value_{col}"] = default_method[1] 
+
+                st.session_state[f"custom_value_{col}"] = default_method[1]
 
                 method = st.selectbox(
                     f"Handle missing values in {'numeric' if is_numeric else 'categorical'} column `{col}` (missing: {df[col].isnull().sum()})",
