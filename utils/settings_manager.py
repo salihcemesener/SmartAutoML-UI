@@ -54,7 +54,6 @@ def save_configuration_if_updated(config_file_name, new_config_data, config_data
             existing_data = {}
     else:
         existing_data = {}
-
     existing_raw = existing_data.get(config_data_key, [])
     existing_values = set(json.dumps(d, sort_keys=True) for d in existing_raw)
     new_values = set(json.dumps(d, sort_keys=True) for d in new_config_data)

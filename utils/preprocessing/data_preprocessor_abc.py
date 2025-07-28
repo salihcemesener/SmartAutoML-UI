@@ -20,6 +20,7 @@ class DataPreprocessorHandler(ABC):
         col: str = "",
         categorical_cols: List = [],
         missing_values: List = [],
+        settings: Dict = {},
     ) -> None:
         pass
 
