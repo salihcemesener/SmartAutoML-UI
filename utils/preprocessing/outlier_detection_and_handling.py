@@ -1,9 +1,8 @@
 # STANDARD MODULES
 import traceback
-import pandas as pd
 import numpy as np
-import streamlit as st
 from io import BytesIO
+import streamlit as st
 from scipy.stats import zscore
 from scipy.stats.mstats import winsorize
 from sklearn.ensemble import IsolationForest
@@ -101,7 +100,7 @@ class OutlierDetectionAndHandler(DataPreprocessorHandler):
 
     def run(self, df, settings, saved_configuration_file):
         original_shape = df.shape
-        
+
         self.display_info(df=df)
 
         config_list = self.sync_column_config_list(
@@ -114,13 +113,10 @@ class OutlierDetectionAndHandler(DataPreprocessorHandler):
 
         self.init_parameters_for_col(df)
 
-        
         st.session_state["remove_outliers_target_col"] = st.selectbox(
             "Visualize outliers by using target as:",
             options=df.columns.tolist(),
-            index=df.columns.get_loc(
-                df.columns[0]
-            ),
+            index=df.columns.get_loc(df.columns[0]),
             key="remove_outliers_target_col_plot",
             help="This column will be used as the grouping variable in the box‐plots and as the y-axis in the joint‐plot.",
         )
@@ -265,16 +261,16 @@ class OutlierDetectionAndHandler(DataPreprocessorHandler):
                             type_of_method="outlier_detection",
                         )
                     )
-                    
+
                     df, outlier_handler_output = self.apply_method(
                         df=df,
                         col=col,
                         type_of_method="outlier_handling",
                         detected_outlier_indices=detected_outlier_indices,
                     )
-                    
+
                     self.display_plot(df=df, col=col)
-                    
+
                     for element in config_list:
                         if col in element:
                             element[col] = [

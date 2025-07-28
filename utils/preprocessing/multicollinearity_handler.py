@@ -1,10 +1,11 @@
 # STANDARD MODULES
+import traceback
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from io import BytesIO
 import streamlit as st
 import matplotlib.pyplot as plt
-
 
 # USER MODULES
 from utils.settings_manager import save_configuration_if_updated
@@ -50,30 +51,6 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
                     "existing_method_multicollinearity_handler"
                 ].get(key, default)
 
-    def display_correlation_plot(self, df, col):
-        st.markdown("#### 🔍 Correlation Matrix (Pearson)")
-        corr = df.corr(numeric_only=True)
-
-        fig, ax = plt.subplots(figsize=(10, 6))
-        sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax)
-        st.pyplot(fig)
-
-        threshold = 0.85
-        upper_triangle = corr.where(~np.tril(np.ones(corr.shape)).astype(bool))
-        high_corr_pairs = [
-            (col1, col2, round(upper_triangle.loc[col1, col2], 2))
-            for col1 in upper_triangle.columns
-            for col2 in upper_triangle.columns
-            if not pd.isna(upper_triangle.loc[col1, col2])
-            and abs(upper_triangle.loc[col1, col2]) > threshold
-        ]
-        if high_corr_pairs:
-            st.markdown("#### ⚠️ Highly Correlated Pairs (>|0.85|):")
-            for col1, col2, val in high_corr_pairs:
-                st.write(f"• `{col1}` and `{col2}` → Correlation: {val}")
-        else:
-            st.success("No feature pairs exceed the correlation threshold.")
-
     def run(self, df, settings, saved_configuration_file):
         original_shape = df.shape
 
@@ -109,7 +86,7 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
                 "🔍 Show Available Multicollinearity Detection Techniques Options Explanations"
             ):
                 st.markdown(
-                    f"**👽 Available outlier detection techniques**:\n{help_multicollinearity_detection}"
+                    f"**👽 Available multicollinearity detection techniques**:\n{help_multicollinearity_detection}"
                 )
             for col in df.columns:
                 default_method = st.session_state[
@@ -138,28 +115,100 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
                 )
 
                 try:
-                    multicollinear_columns = self.apply_method(
+                    self.apply_method(
                         df=df,
                         col=col,
                         method=multicollinearity_detection_method,
                         type_of_method="multicollinearity_detection",
                     )
+                    for element in config_list:
+                        if col in element:
+                            element[col]=[
+                                multicollinearity_detection_method,
+                                st.session_state.get(f"pearson_correlation_th_{col}"),
+                                st.session_state.get(f"variance_inflation_th_{col}"),
+
+                            ]
+
                 except Exception as error:
                     st.error(
-                        f"🚨 Error occurred when detect outliers with {multicollinearity_detection_method} and handle outlier with None at {col}. Error: {repr(error)}"
+                        f"🚨 Error occurred when detect multicollinearity with {multicollinearity_detection_method} and handle multicollinearity with None at {col}. Error: {repr(error)}"
                     )
 
-                settings = save_configuration_if_updated(
-                    config_file_name=saved_configuration_file,
-                    new_config_data=config_list,
-                    config_data_key="Remove_outliers_handle_methods",
-                )
                 st.warning(
                     f"📏 Dataset size changed from **{original_shape}** to **{df.shape}** after applying multicollinearity handler."
                 )
+
+            settings = save_configuration_if_updated(
+                config_file_name=saved_configuration_file,
+                new_config_data=config_list,
+                config_data_key="Handle_multicollinearity_methods",
+            )
+
         st.write(f"**Shape (Before → After):** {original_shape} → {df.shape}")
-        return df, settings
         return df, settings
 
     def apply_method(self, df, col, method, type_of_method):
-        pass
+        if type_of_method == "multicollinearity_detection":
+            self.apply_multicollinear_detection(fill_method_name=method, df=df, col=col)
+
+    def display_plot(self, col, fig):
+        def render_figure(fig, caption):
+            buf = BytesIO()
+            fig.tight_layout()
+            fig.savefig(buf, format="png", bbox_inches="tight")
+            buf.seek(0)
+            st.image(buf, caption=caption, width=480)
+
+        render_figure(fig=fig, caption=f"Multicollinearity Figure {col}")
+
+    def apply_multicollinear_detection(self, fill_method_name, df, col):
+        try:
+            if fill_method_name == "Correlation Matrix (Pearson)":
+                    with st.container():
+                        visualize = st.checkbox(
+                            f"❓ Visualize multicollinearity for '{col}'",
+                            key=f"visualize_{col}_by_target_multicollinearity",
+                        )
+
+                        if visualize:
+                            st.markdown("### 🔍 Correlation Matrix (Pearson)")
+                            corr = df.corr(numeric_only=True)
+
+                            fig, ax = plt.subplots(figsize=(10, 6))
+                            sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax)
+                            self.display_plot(col=col, fig=fig)
+
+                    default_th_key = f"pearson_correlation_th_{col}"
+                    default_threshold = st.session_state.get(default_th_key, 1.0)
+
+                    threshold = st.slider(
+                        "🎚️ Set Pearson Correlation Threshold",
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=default_threshold,
+                        step=0.01,
+                        key=f"set_pearson_th_{col}",
+                    )
+
+                    st.session_state[default_th_key] = threshold
+
+                    corr = df.corr(numeric_only=True)
+                    upper_triangle = corr.where(~np.tril(np.ones(corr.shape)).astype(bool))
+
+                    high_corr_pairs = [
+                        (col1, col2, round(upper_triangle.loc[col1, col2], 2))
+                        for col1 in upper_triangle.columns
+                        for col2 in upper_triangle.columns
+                        if col1 != col2 and not pd.isna(upper_triangle.loc[col1, col2])
+                        and abs(upper_triangle.loc[col1, col2]) > threshold
+                    ]
+                    if high_corr_pairs:
+                        st.markdown("### ⚠️ Highly Correlated Feature Pairs")
+                        for col1, col2, val in high_corr_pairs:
+                            st.markdown(f"- `{col1}` and `{col2}` → **Correlation**: `{val}`")
+                    else:
+                        st.success("✅ No feature pairs exceed the selected correlation threshold.")
+                    st.error(high_corr_pairs)
+        except Exception as e:
+            return f"🚨 Error during multicollinearity detection for {col}: {repr(e)}. Traceback error: {traceback.format_exc()}"
