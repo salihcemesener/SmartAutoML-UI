@@ -3,8 +3,7 @@ import pandas as pd
 import streamlit as st
 import category_encoders as ce
 from pandas.api.types import is_object_dtype
-from sklearn.preprocessing import LabelEncoder
-
+from sklearn.preprocessing import LabelEncoder,OneHotEncoder
 # USER MODULES
 from utils.settings_manager import save_configuration_if_updated
 from utils.preprocessing.data_preprocessor_abc import DataPreprocessorHandler
@@ -184,8 +183,15 @@ class CategoricalValueHandler(DataPreprocessorHandler):
                 st.success(f"**{col}** converted using Label Encoding.")
 
             elif method == "One-Hot Encoding":
-                df = pd.get_dummies(df, columns=[col], drop_first=True)
-                st.success(f"**{col}** converted using One-Hot Encoding.")
+                encoder = OneHotEncoder(sparse_output=False, drop='first', handle_unknown='ignore')
+                one_hot_encoded = encoder.fit_transform(df[[col]])
+                one_hot_df = pd.DataFrame(
+                    one_hot_encoded,
+                    columns=encoder.get_feature_names_out([col]),
+                    index=df.index  
+                )
+                df = pd.concat([df.drop(columns=[col]), one_hot_df], axis=1)
+                st.success(f"✅ Column **{col}** converted using One-Hot Encoding.")
 
             elif method == "Frequency Encoding":
                 df[col] = df[col].map(df[col].value_counts())

@@ -5,3 +5,4 @@ streamlit # Web app framework for data science and machine learning projects
 matplotlib # Comprehensive library for creating static, animated, and interactive visualizations
 scikit-learn # Machine learning library with tools for model fitting, selection, and evaluation
 scipy # Scientific computing tools (e.g., stats, optimization, signal processing)
+statsmodels # Statistical testing, modeling, and exploratory data analysis.
