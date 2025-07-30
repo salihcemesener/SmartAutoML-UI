@@ -20,6 +20,9 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
         self.multicollinearity_detection_options = (
             DataPreprocessingOptionsHelperText.list_multicollinearity_detection_options()
         )
+        self.multicollinearity_handler_options = (
+            DataPreprocessingOptionsHelperText.get_multicollinearity_handler_options()
+        )
 
     def init_parameters_for_col(
         self, df, col="", categorical_cols=..., missing_values=..., settings=...
@@ -32,8 +35,21 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
         pearson_threshold = multicollinear_settings.get(
             "Pearson_correlation_th", [0.5]
         )[0]
-        VIF_threshold = multicollinear_settings.get("VIF_th", [5.0])[0]
-        return default_detection_method, pearson_threshold, VIF_threshold
+        VIF_threshold = multicollinear_settings.get("VIF_th", [10.0])[0]
+        default_handler_method = multicollinear_settings.get(
+            "Multicollinear_handler_methods",
+            [next(iter(self.multicollinearity_handler_options))],
+        )[0]
+        dropped_columns = multicollinear_settings.get(
+            "Multicollinear_dropped_columns", []
+        )
+        return (
+            default_detection_method,
+            default_handler_method,
+            pearson_threshold,
+            VIF_threshold,
+            dropped_columns,
+        )
 
     def display_info(self, df):
         st.markdown("### 🧠 Handling Multi-Collinearity")
@@ -52,15 +68,19 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
         original_shape = df.shape
         self.display_info(df)
 
-        default_detection_method, pearson_threshold, VIF_threshold = (
-            self.init_parameters_for_col(df=df, settings=settings)
-        )
+        (
+            default_detection_method,
+            default_handler_method,
+            pearson_threshold,
+            VIF_threshold,
+            dropped_columns,
+        ) = self.init_parameters_for_col(df=df, settings=settings)
 
         with st.expander("📊 Multicollinearity Detection & Handling", expanded=False):
             st.markdown("#### Multicollinearity Detection & Handling in the Dataset")
 
             with st.expander("🔍 Show Available Detection Techniques"):
-                explanations = "\n".join(
+                explanations_detection = "\n".join(
                     [
                         f"{i + 1}. **{k}**: {v}"
                         for i, (k, v) in enumerate(
@@ -68,29 +88,64 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
                         )
                     ]
                 )
-                st.markdown(f"**Available Techniques:**\n\n{explanations}")
-
-            try:
-                default_index = list(self.multicollinearity_detection_options).index(
-                    default_detection_method
+                st.markdown(
+                    f"**Available Detection Techniques:**\n\n{explanations_detection}"
                 )
-            except (ValueError, IndexError):
-                default_index = 0
 
-            selected_detection_method = st.selectbox(
-                "📌 Select a Multicollinearity Detection Method",
-                options=list(self.multicollinearity_detection_options.keys()),
-                help="Choose how to detect multicollinearity",
-                index=default_index,
-            )
+            with st.expander("🔍 Show Available Handler Techniques"):
+                explanations_handler = "\n".join(
+                    [
+                        f"{i + 1}. **{k}**: {v}"
+                        for i, (k, v) in enumerate(
+                            self.multicollinearity_handler_options.items()
+                        )
+                    ]
+                )
+                st.markdown(
+                    f"**Available Handler Techniques:**\n\n{explanations_handler}"
+                )
 
             try:
+                default_detection_index = list(
+                    self.multicollinearity_detection_options
+                ).index(default_detection_method)
+            except (ValueError, IndexError):
+                default_detection_index = 0
+
+            try:
+                default_handler_index = list(
+                    self.multicollinearity_handler_options
+                ).index(default_handler_method)
+            except (ValueError, IndexError):
+                default_handler_index = 0
+
+            try:
+                selected_detection_method = st.selectbox(
+                    "📌 Select a Multicollinearity Detection Method",
+                    options=list(self.multicollinearity_detection_options.keys()),
+                    help="Choose how to detect multicollinearity",
+                    index=default_detection_index,
+                )
                 pearson_threshold, VIF_threshold, high_corr_pairs = self.apply_method(
                     df=df,
                     method="multicollinearity_detection",
                     selected_detection_method=selected_detection_method,
                     pearson_threshold=pearson_threshold,
                     VIF_threshold=VIF_threshold,
+                )
+                selected_handler_method = st.selectbox(
+                    "📌 Select a Multicollinearity Handler Method",
+                    options=list(self.multicollinearity_handler_options.keys()),
+                    help="Choose how to handle multicollinearity",
+                    index=default_handler_index,
+                )
+
+                df, dropped_columns = self.apply_method(
+                    df=df,
+                    dropped_columns=dropped_columns,
+                    method="multicollinearity_handler",
+                    selected_handler_method=selected_handler_method,
+                    multicollinear_columns=high_corr_pairs,
                 )
 
                 # Save updated settings
@@ -99,20 +154,34 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
                     new_config_data=[selected_detection_method],
                     config_data_key="Multicollinear_detection_methods",
                 )
+
+                settings = save_configuration_if_updated(
+                    config_file_name=saved_configuration_file,
+                    new_config_data=[selected_handler_method],
+                    config_data_key="Multicollinear_handler_methods",
+                )
+
                 settings = save_configuration_if_updated(
                     config_file_name=saved_configuration_file,
                     new_config_data=[pearson_threshold],
                     config_data_key="Pearson_correlation_th",
                 )
+
                 settings = save_configuration_if_updated(
                     config_file_name=saved_configuration_file,
                     new_config_data=[VIF_threshold],
                     config_data_key="VIF_th",
                 )
 
+                settings = save_configuration_if_updated(
+                    config_file_name=saved_configuration_file,
+                    new_config_data=dropped_columns,
+                    config_data_key="Multicollinear_dropped_columns",
+                )
+
             except Exception as error:
                 st.error(
-                    f"🚨 Error applying method `{selected_detection_method}`. Details: {repr(error)}"
+                    f"🚨 Error occured at applying detection `{selected_detection_method}` and handler {selected_handler_method}. Details: {repr(error)}"
                 )
                 st.exception(error)
 
@@ -123,11 +192,23 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
         return df, settings
 
     def apply_method(
-        self, df, method, selected_detection_method, pearson_threshold, VIF_threshold
+        self,
+        df,
+        method,
+        dropped_columns=None,
+        multicollinear_columns=None,
+        selected_handler_method=None,
+        selected_detection_method=None,
+        pearson_threshold=None,
+        VIF_threshold=None,
     ):
         if method == "multicollinearity_detection":
             return self.apply_multicollinear_detection(
                 df, pearson_threshold, VIF_threshold, selected_detection_method
+            )
+        elif method == "multicollinearity_handler":
+            return self.apply_multicollinear_handler(
+                df, multicollinear_columns, selected_handler_method, dropped_columns
             )
         else:
             st.info("ℹ️ This detection method is not implemented yet.")
@@ -139,6 +220,36 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
         fig.savefig(buf, format="png", bbox_inches="tight")
         buf.seek(0)
         st.image(buf, caption="Multicollinearity Heatmap", width=480)
+
+    def apply_multicollinear_handler(
+        self, df, multicollinear_columns, selected_handler_method, dropped_columns=None
+    ):
+        dropped_columns = None
+        try:
+            if selected_handler_method == "Drop One of the Highly Correlated Features":
+                dropped_columns = st.multiselect(
+                    "Select columns to drop",
+                    options=multicollinear_columns,
+                    key="Drop_Multicollinear_Columns",
+                )
+                if dropped_columns:
+                    st.info(
+                        f"👇 You selected the following columns to drop: {', '.join(dropped_columns)}."
+                    )
+                    df = df.drop(columns=dropped_columns)
+                else:
+                    st.write("No columns selected for dropping.")
+
+            elif selected_handler_method == "Apply Dimensionality Reduction":
+                pass
+            elif selected_handler_method == "Combine Correlated Columns":
+                pass
+        except Exception as e:
+            st.error(
+                f"🚨 Multicollinearity handler failed using {selected_handler_method}."
+            )
+            st.exception(e)
+        return df, dropped_columns
 
     def apply_multicollinear_detection(
         self, df, pearson_threshold, VIF_threshold, selected_detection_method
@@ -183,6 +294,10 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
                             st.markdown(
                                 f"- `{c1}` and `{c2}` → **Correlation**: `{val}`"
                             )
+                        high_corr_pairs = [
+                            column[i] for column in high_corr_pairs for i in (0, 1)
+                        ]
+
                     else:
                         st.success(
                             "✅ No feature pairs exceed the selected correlation threshold."
