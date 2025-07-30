@@ -229,3 +229,17 @@ class DataPreprocessingOptionsHelperText:
             ),
         }
         return multicollinearity_detection_options
+
+    def get_multicollinearity_handler_options():
+        multicollinearity_handler_options = {
+            "Drop One of the Highly Correlated Features": (
+                "Identifies pairs of features with high Pearson correlation or high VIF, "
+                "and drops one feature from each pair based on simple heuristics (e.g., lowest variance or arbitrary selection). "
+                "This is a fast way to reduce redundancy with minimal computation."
+            ),
+            "Combine Correlated Columns (Averaging / Interaction Terms)": (
+                "Instead of dropping features, this approach transforms correlated groups into new features — such as their average, difference, or product. "
+                "This helps preserve the information while reducing dimensionality and collinearity. Best used with domain knowledge."
+            ),
+        }
+        return multicollinearity_handler_options

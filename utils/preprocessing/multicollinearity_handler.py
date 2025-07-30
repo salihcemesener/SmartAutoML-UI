@@ -25,7 +25,7 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
         self, df, col="", categorical_cols=..., missing_values=..., settings=...
     ):
         multicollinear_settings = settings.get("Handle_multicollinearity_methods", {})
-        default_method = multicollinear_settings.get(
+        default_detection_method = multicollinear_settings.get(
             "Multicollinear_detection_methods",
             [next(iter(self.multicollinearity_detection_options))],
         )[0]
@@ -33,7 +33,7 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
             "Pearson_correlation_th", [0.5]
         )[0]
         VIF_threshold = multicollinear_settings.get("VIF_th", [5.0])[0]
-        return default_method, pearson_threshold, VIF_threshold
+        return default_detection_method, pearson_threshold, VIF_threshold
 
     def display_info(self, df):
         st.markdown("### 🧠 Handling Multi-Collinearity")
@@ -52,8 +52,8 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
         original_shape = df.shape
         self.display_info(df)
 
-        default_method, pearson_threshold, VIF_threshold = self.init_parameters_for_col(
-            df=df, settings=settings
+        default_detection_method, pearson_threshold, VIF_threshold = (
+            self.init_parameters_for_col(df=df, settings=settings)
         )
 
         with st.expander("📊 Multicollinearity Detection & Handling", expanded=False):
@@ -72,7 +72,7 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
 
             try:
                 default_index = list(self.multicollinearity_detection_options).index(
-                    default_method
+                    default_detection_method
                 )
             except (ValueError, IndexError):
                 default_index = 0
@@ -209,8 +209,9 @@ class MultiCollinearityHandler(DataPreprocessorHandler):
                     st.dataframe(vif_data)
 
                     high_corr_pairs = vif_data[vif_data["VIF"] > VIF_threshold]
+                    high_corr_pairs = list(high_corr_pairs["Feature"])
 
-                    if not high_corr_pairs.empty:
+                    if high_corr_pairs:
                         st.warning("⚠️ Features exceeding the VIF threshold:")
                         st.dataframe(high_corr_pairs)
                     else:

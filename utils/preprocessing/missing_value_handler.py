@@ -159,11 +159,11 @@ class MissingValueHandler(DataPreprocessorHandler):
                     f'{col} column missing values filled with custom value: {st.session_state[f"custom_value_{col}"]}.'
                 )
             elif method == "Remove Rows":
-                df=df.dropna(subset=[col])
+                df = df.dropna(subset=[col])
                 st.success(f"Rows with missing values in {col} column removed.")
 
             elif method == "Remove Columns":
-                df=df.drop(columns=[col])
+                df = df.drop(columns=[col])
                 st.success(f"{col} column removed from the DataFrame.")
 
         except Exception as e:
