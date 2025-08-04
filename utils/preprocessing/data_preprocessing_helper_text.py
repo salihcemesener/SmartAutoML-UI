@@ -233,13 +233,14 @@ class DataPreprocessingOptionsHelperText:
     def get_multicollinearity_handler_options():
         multicollinearity_handler_options = {
             "Drop One of the Highly Correlated Features": (
-                "Identifies pairs of features with high Pearson correlation or high VIF, "
-                "and drops one feature from each pair based on simple heuristics (e.g., lowest variance or arbitrary selection). "
-                "This is a fast way to reduce redundancy with minimal computation."
+                "Identifies feature pairs with high Pearson correlation and drops column. "
+                "This is a fast way to reduce redundancy and potential multicollinearity. "
+                "The column to drop can be selected manually."
             ),
-            "Combine Correlated Columns (Averaging / Interaction Terms)": (
-                "Instead of dropping features, this approach transforms correlated groups into new features — such as their average, difference, or product. "
-                "This helps preserve the information while reducing dimensionality and collinearity. Best used with domain knowledge."
+            "Combine Correlated Columns": (
+                "Transforms each group of highly correlated columns into a single feature by combining them (e.g., using mean, difference, or product). "
+                "This preserves most of the original information while reducing dimensionality and collinearity. "
+                "Useful when you want to retain signal but simplify the feature space."
             ),
         }
         return multicollinearity_handler_options

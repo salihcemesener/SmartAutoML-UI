@@ -35,9 +35,11 @@ def duplicate_rows_drop_columns_in_dataset(df, dropped_columns=None, key="drop_c
         st.session_state[seed_flag] = True
 
     to_drop = st.multiselect(
-        "Select columns to drop", options=df.columns.tolist(), key=key
+        label="Select columns to drop",
+        options=df.columns.tolist(),
+        default=st.session_state.get(key, []), 
+        key=key,
     )
-
     if to_drop:
         st.info(f"👇 You selected the following columns to drop: {', '.join(to_drop)}.")
         df = df.drop(columns=to_drop)
